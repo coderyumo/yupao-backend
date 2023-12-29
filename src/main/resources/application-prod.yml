@@ -1,0 +1,39 @@
+
+# 线上配置文件
+spring:
+  application:
+    name: user-center
+  # DataSource Config
+  datasource:
+    driver-class-name: com.mysql.jdbc.Driver
+    url: 'jdbc:mysql://101.35.26.98:3306/user-center?useSSL=false'
+    username: user-center
+    password: 123456
+  # session 失效时间
+  session:
+    timeout: 86400
+  redis:
+    host: 101.35.26.98
+    port: 6379
+    password: 123
+    database: 0
+  mvc:
+    pathmatch:
+      matching-strategy: ANT_PATH_MATCHER
+server:
+  address: 0.0.0.0
+  port: 8081
+  servlet:
+    context-path: /api
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: false
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      logic-delete-field: isDelete
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+      logging:
+        level:
