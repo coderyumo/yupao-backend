@@ -76,7 +76,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (userPassword.length() < 8 || checkPassword.length() < 8) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户密码过短");
         }
-        if (planetCode.length() > 5) {
+        if (planetCode.length() > 20) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "星球编号过长");
         }
         // 账户不能包含特殊字符
@@ -168,7 +168,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         String token = userAccount + "-" + newUuid; // 1. 校验
         // 4. 存储用户信息到Redis中,设置key过期时间和token过期时间
         redisTemplate.opsForHash().put(TOKEN_KEY + newUuid, safetyUser.getUserAccount(), safetyUser);
-        redisTemplate.expire(TOKEN_KEY + newUuid, 30, TimeUnit.MINUTES);
+        redisTemplate.expire(TOKEN_KEY + newUuid, 24, TimeUnit.HOURS);
         //    request.getSession().setAttribute(USER_LOGIN_STATE, safetyUser);
         return token;
     }

@@ -2,6 +2,9 @@ package com.yupi.yupaobackend.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.yupi.yupaobackend.model.domain.User;
+import com.yupi.yupaobackend.model.vo.TeamUserVO;
+
+import java.util.List;
 
 /**
 * @author linli

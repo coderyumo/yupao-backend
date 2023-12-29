@@ -19,6 +19,11 @@ public class TeamQuery extends PageRequest {
     private String name;
 
     /**
+     * 搜索关键字
+     */
+    private String searchTest;
+
+    /**
      * 描述
      */
     private String description;
@@ -37,5 +42,15 @@ public class TeamQuery extends PageRequest {
      * 0 - 公开，1 - 私有，2 - 加密
      */
     private Integer status;
+
+    /**
+     * 当前用户
+     */
+    private String userAccount;
+
+    /**
+     * uuid
+     */
+    private String uuid;
 
 }

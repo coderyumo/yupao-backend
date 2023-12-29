@@ -23,6 +23,8 @@
             <result property="profile" column="profile" jdbcType="VARCHAR"/>
     </resultMap>
 
+
+
     <sql id="Base_Column_List">
         id,username,userAccount,
         avatarUrl,gender,userPassword,
@@ -30,4 +32,5 @@
         createTime,updateTime,isDelete,profile,
         userRole,planetCode,tags
     </sql>
+
 </mapper>
