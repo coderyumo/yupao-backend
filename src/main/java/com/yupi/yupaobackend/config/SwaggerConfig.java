@@ -40,7 +40,7 @@ public class SwaggerConfig {
      */
     private ApiInfo apiInfo() {
         return new ApiInfoBuilder()
-                .title("鱼皮用户中心")
+                .title("学习交友匹配系统")
                 .description("鱼皮用户中心接口文档")
                 .termsOfServiceUrl("https://github.com/liyupi")
                 .contact(new Contact("yupi","https://github.com/liyupi","xxx@qq.com"))

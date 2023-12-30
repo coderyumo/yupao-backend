@@ -5,7 +5,9 @@ import com.yupi.yupaobackend.model.domain.Team;
 import com.yupi.yupaobackend.model.domain.User;
 import com.yupi.yupaobackend.model.dto.AddTeamParam;
 import com.yupi.yupaobackend.model.dto.TeamQuery;
+import com.yupi.yupaobackend.model.request.TeamDisbandRequest;
 import com.yupi.yupaobackend.model.request.TeamJoinRequest;
+import com.yupi.yupaobackend.model.request.TeamQuitRequest;
 import com.yupi.yupaobackend.model.request.TeamUpdateRequest;
 import com.yupi.yupaobackend.model.vo.TeamUserVO;
 
@@ -20,7 +22,6 @@ public interface TeamService extends IService<Team> {
 
     /**
      * 创建队伍
-     *
      * @param addTeamParam
      * @return
      */
@@ -28,11 +29,10 @@ public interface TeamService extends IService<Team> {
 
     /**
      * 搜搜队伍
-     *
      * @param teamQuery
      * @return
      */
-    List<TeamUserVO> queryTeams(TeamQuery teamQuery);
+    List<TeamUserVO> queryTeams(TeamQuery teamQuery,Boolean isAdmin);
 
     /**
      * 修改队伍
@@ -48,4 +48,17 @@ public interface TeamService extends IService<Team> {
      */
     Boolean joinTeam(TeamJoinRequest teamJoinRequest);
 
+    /**
+     * 退出队伍
+     * @param teamQuitRequest
+     * @return
+     */
+    Boolean quitTeam(TeamQuitRequest teamQuitRequest);
+
+    /**
+     * 队长解散队伍
+     * @param teamDisbandRequest
+     * @return
+     */
+    Boolean disbandTeam(TeamDisbandRequest teamDisbandRequest);
 }

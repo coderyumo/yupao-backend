@@ -8,19 +8,26 @@ import com.yupi.yupaobackend.common.ResultUtils;
 import com.yupi.yupaobackend.exception.BusinessException;
 import com.yupi.yupaobackend.model.domain.Team;
 import com.yupi.yupaobackend.model.domain.User;
+import com.yupi.yupaobackend.model.domain.UserTeam;
 import com.yupi.yupaobackend.model.dto.AddTeamParam;
 import com.yupi.yupaobackend.model.dto.TeamQuery;
+import com.yupi.yupaobackend.model.request.TeamDisbandRequest;
 import com.yupi.yupaobackend.model.request.TeamJoinRequest;
+import com.yupi.yupaobackend.model.request.TeamQuitRequest;
 import com.yupi.yupaobackend.model.request.TeamUpdateRequest;
 import com.yupi.yupaobackend.model.vo.TeamUserVO;
 import com.yupi.yupaobackend.service.TeamService;
 import com.yupi.yupaobackend.service.UserService;
+import com.yupi.yupaobackend.service.UserTeamService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * @description:
@@ -33,10 +40,13 @@ import java.util.List;
 public class TeamController {
 
     @Resource
-    UserService userService;
+    private UserService userService;
 
     @Resource
-    TeamService teamService;
+    private TeamService teamService;
+
+    @Resource
+    private UserTeamService userTeamService;
 
 
     @PostMapping("/add")
@@ -94,12 +104,10 @@ public class TeamController {
     }
 
     @GetMapping("/list")
-    public BaseResponse<List<TeamUserVO>> queryTeams(TeamQuery teamQuery) {
-        if (teamQuery == null){
-            throw new BusinessException(ErrorCode.PARAMS_ERROR);
-        }
-
-        List<TeamUserVO> list = teamService.queryTeams(teamQuery);
+    public BaseResponse<List<TeamUserVO>> queryTeamsList(TeamQuery teamQuery) {
+        User loginUser = userService.getLoginUser(teamQuery.getUserAccount(), teamQuery.getUuid());
+        boolean isAdmin = userService.isAdmin(loginUser);
+        List<TeamUserVO> list = teamService.queryTeams(teamQuery,isAdmin);
         return ResultUtils.success(list);
     }
 
@@ -125,5 +133,57 @@ public class TeamController {
         }
         Boolean result = teamService.joinTeam(teamJoinRequest);
         return ResultUtils.success(result);
+    }
+
+    @PostMapping("/quit")
+    public BaseResponse<Boolean> quitTeam(@RequestBody TeamQuitRequest teamQuitRequest) {
+        if (teamQuitRequest == null){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        Boolean result = teamService.quitTeam(teamQuitRequest);
+        return ResultUtils.success(result);
+    }
+
+    @PostMapping("/disband")
+    public BaseResponse<Boolean>  disbandTeam(@RequestBody TeamDisbandRequest teamDisbandRequest) {
+        if (teamDisbandRequest == null){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        Boolean result = teamService.disbandTeam(teamDisbandRequest);
+        return ResultUtils.success(result);
+    }
+
+    /**
+     * 获取我创建的队伍
+     * @param teamQuery
+     * @return
+     */
+    @GetMapping("/list/my/create")
+    public BaseResponse<List<TeamUserVO>> myCreateTeamsList(TeamQuery teamQuery) {
+        User loginUser = userService.getLoginUser(teamQuery.getUserAccount(), teamQuery.getUuid());
+        teamQuery.setUserId(loginUser.getId());
+        List<TeamUserVO> list = teamService.queryTeams(teamQuery,true);
+        return ResultUtils.success(list);
+    }
+
+    /**
+     * 获取我加入的队伍
+     * @param teamQuery
+     * @return
+     */
+    @GetMapping("/list/my/join")
+    public BaseResponse<List<TeamUserVO>> myJoinTeamsList(TeamQuery teamQuery) {
+        //获取登录用户
+        User loginUser = userService.getLoginUser(teamQuery.getUserAccount(), teamQuery.getUuid());
+        Long userId = loginUser.getId();
+        QueryWrapper<UserTeam> queryWrapper = new QueryWrapper<>();
+        queryWrapper.lambda().eq(UserTeam::getUserId,userId);
+        List<UserTeam> userTeamList = userTeamService.list(queryWrapper);
+        //去重
+        Map<Long, List<UserTeam>> listMap = userTeamList.stream().collect(Collectors.groupingBy(UserTeam::getTeamId));
+        ArrayList<Long> idList = new ArrayList<>(listMap.keySet());
+        teamQuery.setIdList(idList);
+        List<TeamUserVO> list = teamService.queryTeams(teamQuery,true);
+        return ResultUtils.success(list);
     }
 }

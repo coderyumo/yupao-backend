@@ -2,6 +2,9 @@ package com.yupi.yupaobackend.model.dto;
 
 import com.yupi.yupaobackend.common.PageRequest;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
+
+import java.util.List;
 
 /**
  * @description: 队伍查询参数
@@ -9,9 +12,12 @@ import lombok.Data;
  * @create: 2023-12-29 14:52
  **/
 @Data
+@EqualsAndHashCode(callSuper = true)
 public class TeamQuery extends PageRequest {
 
     private Long id;
+
+    private List<Long> idList;
 
     /**
      * 队伍名称
@@ -21,7 +27,7 @@ public class TeamQuery extends PageRequest {
     /**
      * 搜索关键字
      */
-    private String searchTest;
+    private String searchText;
 
     /**
      * 描述

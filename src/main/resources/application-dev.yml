@@ -11,7 +11,7 @@ spring:
     timeout: 86400
     store-type: redis
   redis:
-    host: 192.168.150.128
+    host: 192.168.150.129
     port: 6379
     password: 123
     database: 0

@@ -34,6 +34,7 @@ public class AddTeamParam {
     @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private Date expireTime;
+
     /**
      * 用户id
      */
