@@ -8,6 +8,7 @@ import com.yupi.yupaobackend.model.dto.UserDTO;
 import com.yupi.yupaobackend.model.request.SearchUserByTagsRequest;
 
 import javax.servlet.http.HttpServletRequest;
+import java.util.List;
 
 /**
  * @author linli
@@ -97,4 +98,12 @@ public interface UserService extends IService<User> {
      * @return
      */
     boolean isAdmin(User loginUser);
+
+    /**
+     * 匹配用户
+     * @param num
+     * @param loginUser
+     * @return
+     */
+    List<User> matchUser(int num, User loginUser);
 }

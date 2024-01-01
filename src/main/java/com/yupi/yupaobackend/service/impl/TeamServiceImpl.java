@@ -358,12 +358,13 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         Integer status = teamQuery.getStatus();
         TeamStatusEnum statusEnum = TeamStatusEnum.getEnumByValue(status);
         if (statusEnum == null) {
-            statusEnum = TeamStatusEnum.PUBLIC;
+            if (!isAdmin){
+                queryWrapper.lambda().in(Team::getStatus, Arrays.asList("0","2"));
+            }
+        }else {
+            queryWrapper.lambda().eq(Team::getStatus, statusEnum);
         }
 
-        if (!isAdmin && statusEnum.equals(TeamStatusEnum.PUBLIC)) {
-            queryWrapper.lambda().eq(Team::getStatus, teamQuery.getStatus());
-        }
 
         List<Team> teamList = this.list(queryWrapper);
 
@@ -377,6 +378,7 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
                 TeamUserVO teamUserVO = new TeamUserVO();
                 BeanUtils.copyProperties(team, teamUserVO);
                 ArrayList<User> userList = new ArrayList<>();
+                ArrayList<Long> memberId = new ArrayList<>();
                 Long teamId = team.getId();
                 QueryWrapper<UserTeam> userTeamQueryWrapper = new QueryWrapper<>();
                 userTeamQueryWrapper.lambda().eq(UserTeam::getTeamId, teamId);
@@ -386,11 +388,16 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
                     User safetyUser = userService.getSafetyUser(user);
                     userList.add(safetyUser);
 
+                    //所有加入队伍的成员id
+                    memberId.add(user.getId());
                     teamUserVO.setUserList(userList);
                 }
                 User userById = userService.getById(team.getUserId());
                 teamUserVO.setCreateUsername(userById.getUsername());
                 teamUserVO.setCreateAvatarUrl(userById.getAvatarUrl());
+                teamUserVO.setMemberId(memberId);
+                Long userId = loginUser.getId();
+                teamUserVO.setIsJoin(memberId.contains(userId));
                 respTeamUserVO.add(teamUserVO);
             }
 

@@ -49,6 +49,16 @@ public class TeamUserVO implements Serializable {
     private Long userId;
 
     /**
+     * 入队成员id
+     */
+    private List<Long> memberId;
+
+    /**
+     * 当前用户是否已加入队伍
+     */
+    private Boolean isJoin;
+
+    /**
      * 创建人姓名
      */
     private String createUsername;
@@ -81,4 +91,5 @@ public class TeamUserVO implements Serializable {
      * 入队用户列表
      */
     private List<User> userList;
+
 }

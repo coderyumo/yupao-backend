@@ -21,6 +21,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static com.yupi.yupaobackend.constant.RedisConstant.TOKEN_KEY;
@@ -28,7 +29,7 @@ import static com.yupi.yupaobackend.constant.RedisConstant.USER_SEARCH_KEY;
 
 @RestController
 @RequestMapping("/user")
-//@CrossOrigin(origins = {"http://localhost:3000", "http://localhost:8000"})
+@CrossOrigin(origins = {"http://localhost:3000", "http://localhost:8000"})
 //@CrossOrigin(origins = {"http://user.code-li.fun", "http://101.35.26.98:8000"})
 @Slf4j
 public class UserController {
@@ -188,5 +189,22 @@ public class UserController {
         return ResultUtils.success(result);
     }
 
+
+    /**
+     * 获取最匹配的用户
+     *
+     * @return
+     */
+    @GetMapping("/match")
+    public BaseResponse<List<User>> matchUser(CurrentUserRequest currentUserRequest){
+        int num = currentUserRequest.getNum();
+        if (num <= 0 || num >20){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        User loginUser = userService.getLoginUser(currentUserRequest.getUserAccount(), currentUserRequest.getUuid());
+        List<User> matchUser = userService.matchUser(num, loginUser);
+
+        return ResultUtils.success(matchUser);
+    }
 
 }

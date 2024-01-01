@@ -15,6 +15,8 @@ import com.yupi.yupaobackend.model.domain.User;
 import com.yupi.yupaobackend.model.dto.UserDTO;
 import com.yupi.yupaobackend.model.request.SearchUserByTagsRequest;
 import com.yupi.yupaobackend.service.UserService;
+import com.yupi.yupaobackend.utils.AlgorithmUtils;
+import javafx.util.Pair;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -76,6 +78,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (userPassword.length() < 8 || checkPassword.length() < 8) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户密码过短");
         }
+
         if (planetCode.length() > 20) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "星球编号过长");
         }
@@ -83,11 +86,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         String validPattern = "[`~!@#$%^&*()+=|{}':;',\\\\[\\\\].<>/?~！@#￥%……&*（）——+|{}【】‘；：”“’。，、？]";
         Matcher matcher = Pattern.compile(validPattern).matcher(userAccount);
         if (matcher.find()) {
-            return -1;
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "不能包含特殊字符");
         }
         // 密码和校验密码相同
         if (!userPassword.equals(checkPassword)) {
-            return -1;
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "密码和校验密码不相同");
         }
         // 账户不能重复
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
@@ -304,6 +307,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (StringUtils.isNotBlank(userDTO.getEmail())){
             oldUser.setEmail(userDTO.getEmail());
         }
+        if (userDTO.getGender() != null){
+            oldUser.setGender(userDTO.getGender());
+        }
         if (StringUtils.isNotBlank(userDTO.getPhone())){
             oldUser.setPhone(userDTO.getPhone());
         }
@@ -322,5 +328,56 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Override
     public boolean isAdmin(User loginUser) {
         return loginUser != null && loginUser.getUserRole() == UserConstant.ADMIN_ROLE;
+    }
+
+    @Override
+    public List<User> matchUser(int num, User loginUser) {
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        queryWrapper.select("id", "tags");
+        queryWrapper.isNotNull("tags");
+        List<User> userList = this.list(queryWrapper);
+        String tags = loginUser.getTags();
+        Gson gson = new Gson();
+        List<String> tagList = gson.fromJson(tags, new TypeToken<List<String>>() {
+        }.getType());
+        // 用户列表的下标 => 相似度
+        List<Pair<User, Long>> list = new ArrayList<>();
+        // 依次计算所有用户和当前用户的相似度
+        for (int i = 0; i < userList.size(); i++) {
+            User user = userList.get(i);
+            String userTags = user.getTags();
+            // 无标签或者为当前用户自己
+            if (StringUtils.isBlank(userTags) || user.getId() == loginUser.getId()) {
+                continue;
+            }
+            List<String> userTagList = gson.fromJson(userTags, new TypeToken<List<String>>() {
+            }.getType());
+            // 计算分数
+            long distance = AlgorithmUtils.minDistance(tagList, userTagList);
+            list.add(new Pair<>(user, distance));
+        }
+        // 按编辑距离由小到大排序
+        List<Pair<User, Long>> topUserPairList = list.stream()
+                .sorted((a, b) -> (int) (a.getValue() - b.getValue()))
+                .limit(num)
+                .collect(Collectors.toList());
+        // 原本顺序的 userId 列表
+        List<Long> userIdList = topUserPairList.stream().map(pair -> pair.getKey().getId()).collect(Collectors.toList());
+        QueryWrapper<User> userQueryWrapper = new QueryWrapper<>();
+        userQueryWrapper.in("id", userIdList);
+        // 1, 3, 2
+        // User1、User2、User3
+        // 1 => User1, 2 => User2, 3 => User3
+        Map<Long, List<User>> userIdUserListMap = this.list(userQueryWrapper)
+                .stream()
+                .map(this::getSafetyUser)
+                .collect(Collectors.groupingBy(User::getId));
+        List<User> finalUserList = new ArrayList<>();
+        for (Long userId : userIdList) {
+            finalUserList.add(userIdUserListMap.get(userId).get(0));
+        }
+
+        return finalUserList;
+
     }
 }

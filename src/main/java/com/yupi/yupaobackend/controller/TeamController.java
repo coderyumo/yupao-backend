@@ -1,6 +1,7 @@
 package com.yupi.yupaobackend.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.CollectionUtils;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.yupi.yupaobackend.common.BaseResponse;
 import com.yupi.yupaobackend.common.ErrorCode;
@@ -108,6 +109,7 @@ public class TeamController {
         User loginUser = userService.getLoginUser(teamQuery.getUserAccount(), teamQuery.getUuid());
         boolean isAdmin = userService.isAdmin(loginUser);
         List<TeamUserVO> list = teamService.queryTeams(teamQuery,isAdmin);
+        //当前用户是否已加入队伍
         return ResultUtils.success(list);
     }
 
@@ -182,6 +184,9 @@ public class TeamController {
         //去重
         Map<Long, List<UserTeam>> listMap = userTeamList.stream().collect(Collectors.groupingBy(UserTeam::getTeamId));
         ArrayList<Long> idList = new ArrayList<>(listMap.keySet());
+        if (CollectionUtils.isEmpty(idList)){
+            return ResultUtils.success(null);
+        }
         teamQuery.setIdList(idList);
         List<TeamUserVO> list = teamService.queryTeams(teamQuery,true);
         return ResultUtils.success(list);
