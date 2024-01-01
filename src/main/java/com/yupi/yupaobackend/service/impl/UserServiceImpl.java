@@ -31,7 +31,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import static com.yupi.yupaobackend.constant.RedisConstant.TOKEN_KEY;
+import static com.yupi.yupaobackend.constant.RedisConstant.*;
 import static com.yupi.yupaobackend.constant.UserConstant.USER_LOGIN_STATE;
 
 /**
@@ -332,6 +332,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     @Override
     public List<User> matchUser(int num, User loginUser) {
+        //有缓存直接读缓存
+        String key = USER_MATCH_KEY + loginUser.getId();
+        List<User> cacheUserList =(List<User>) redisTemplate.opsForValue().get(key);
+        if (CollectionUtils.isNotEmpty(cacheUserList)){
+            return cacheUserList;
+        }
+
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
         queryWrapper.select("id", "tags");
         queryWrapper.isNotNull("tags");
@@ -377,6 +384,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             finalUserList.add(userIdUserListMap.get(userId).get(0));
         }
 
+        //查出来最匹配的用户，进行存储，并设置过期时间
+        //写缓存
+        try {
+            redisTemplate.opsForValue().set(key,finalUserList,5, TimeUnit.HOURS);
+        } catch (Exception e) {
+            log.error("redis set key error");
+        }
         return finalUserList;
 
     }

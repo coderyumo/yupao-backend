@@ -92,4 +92,9 @@ public class TeamUserVO implements Serializable {
      */
     private List<User> userList;
 
+    /**
+     * 创建人信息
+     */
+    private User createUser;
+
 }
