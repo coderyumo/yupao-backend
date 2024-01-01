@@ -22,7 +22,7 @@ spring:
       matching-strategy: ANT_PATH_MATCHER
 server:
   address: 0.0.0.0
-  port: 8081
+  port: 8080
   servlet:
     context-path: /api
 
