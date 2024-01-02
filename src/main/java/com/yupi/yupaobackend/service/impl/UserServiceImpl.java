@@ -14,11 +14,13 @@ import com.yupi.yupaobackend.mapper.UserMapper;
 import com.yupi.yupaobackend.model.domain.User;
 import com.yupi.yupaobackend.model.dto.UserDTO;
 import com.yupi.yupaobackend.model.request.SearchUserByTagsRequest;
+import com.yupi.yupaobackend.model.request.UserRegisterRequest;
 import com.yupi.yupaobackend.service.UserService;
 import com.yupi.yupaobackend.utils.AlgorithmUtils;
 import javafx.util.Pair;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.BeanUtils;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
@@ -31,7 +33,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import static com.yupi.yupaobackend.constant.RedisConstant.*;
+import static com.yupi.yupaobackend.constant.RedisConstant.TOKEN_KEY;
+import static com.yupi.yupaobackend.constant.RedisConstant.USER_MATCH_KEY;
 import static com.yupi.yupaobackend.constant.UserConstant.USER_LOGIN_STATE;
 
 /**
@@ -59,24 +62,34 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     /**
      * 用户注册
      *
-     * @param userAccount   用户账户
-     * @param userPassword  用户密码
-     * @param checkPassword 校验密码
-     * @param planetCode    星球编号
+     * @param registerRequest  用户注册
      * @return 新用户 id
      */
     @Override
-    public long userRegister(
-            String userAccount, String userPassword, String checkPassword, String planetCode) {
+    public long userRegister(UserRegisterRequest registerRequest) {
+        String userAccount = registerRequest.getUserAccount();
+        String userPassword = registerRequest.getUserPassword();
+        String checkPassword = registerRequest.getCheckPassword();
+        String planetCode = registerRequest.getPlanetCode();
+        String activeIds = registerRequest.getTags();
+        String avatarUrl = registerRequest.getAvatarUrl();
+        String username = registerRequest.getUsername();
+        String phone = registerRequest.getPhone();
+        String email = registerRequest.getEmail();
+        if (StringUtils.isAnyBlank(userAccount, userPassword, checkPassword, planetCode,activeIds,avatarUrl,username,
+                phone,email
+        )) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"参数错误");
+        }
         // 1. 校验
-        if (StringUtils.isAnyBlank(userAccount, userPassword, checkPassword, planetCode)) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "参数为空");
+        if (StringUtils.isAnyBlank(userAccount, userPassword, checkPassword, planetCode,activeIds,avatarUrl,username)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"参数错误");
         }
         if (userAccount.length() < 4) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户账号过短");
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户账号至少四位");
         }
         if (userPassword.length() < 8 || checkPassword.length() < 8) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户密码过短");
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户密码至少八位");
         }
 
         if (planetCode.length() > 20) {
@@ -110,12 +123,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         String encryptPassword = DigestUtils.md5DigestAsHex((SALT + userPassword).getBytes());
         // 3. 插入数据
         User user = new User();
-        user.setUserAccount(userAccount);
+        BeanUtils.copyProperties(registerRequest,user);
         user.setUserPassword(encryptPassword);
-        user.setPlanetCode(planetCode);
+        System.out.println("user = " + user);
         boolean saveResult = this.save(user);
         if (!saveResult) {
-            return -1;
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR,"注册失败");
         }
         return user.getId();
     }
@@ -161,8 +174,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         User user = userMapper.selectOne(queryWrapper);
         // 用户不存在
         if (user == null) {
-            log.info("user login failed, userAccount cannot match userPassword");
-            return null;
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"user login failed, userAccount cannot match " +
+                    "userPassword");
         }
         // 3. 用户脱敏
         User safetyUser = getSafetyUser(user);
@@ -312,6 +325,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         }
         if (StringUtils.isNotBlank(userDTO.getPhone())){
             oldUser.setPhone(userDTO.getPhone());
+        }
+        if (StringUtils.isNotBlank(userDTO.getAvatarUrl())){
+            oldUser.setAvatarUrl(userDTO.getAvatarUrl());
+        }
+        if (StringUtils.isNotBlank(userDTO.getTags())){
+            oldUser.setTags(userDTO.getTags());
         }
         if (StringUtils.isNotBlank(userDTO.getAvatarUrl())){
             oldUser.setAvatarUrl(userDTO.getAvatarUrl());

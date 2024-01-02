@@ -33,7 +33,6 @@ public class UserDTO implements Serializable {
      */
     private Integer gender;
 
-
     /**
      * 电话
      */
@@ -43,4 +42,9 @@ public class UserDTO implements Serializable {
      * 邮箱
      */
     private String email;
+
+    /**
+     * 标签
+     */
+    private String tags;
 }

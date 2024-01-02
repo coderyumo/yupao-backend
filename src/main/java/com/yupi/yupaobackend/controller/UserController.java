@@ -29,8 +29,7 @@ import static com.yupi.yupaobackend.constant.RedisConstant.USER_SEARCH_KEY;
 
 @RestController
 @RequestMapping("/user")
-@CrossOrigin(origins = {"http://localhost:3000", "http://localhost:8000"})
-//@CrossOrigin(origins = {"http://user.code-li.fun", "http://101.35.26.98:8000"})
+@CrossOrigin(origins = {"http://user.code-li.fun","http://yupao.code-li.fun"})
 @Slf4j
 public class UserController {
 
@@ -57,10 +56,17 @@ public class UserController {
         String userPassword = userRegisterRequest.getUserPassword();
         String checkPassword = userRegisterRequest.getCheckPassword();
         String planetCode = userRegisterRequest.getPlanetCode();
-        if (StringUtils.isAnyBlank(userAccount, userPassword, checkPassword, planetCode)) {
-            return null;
+        String activeIds = userRegisterRequest.getTags();
+        String avatarUrl = userRegisterRequest.getAvatarUrl();
+        String username = userRegisterRequest.getUsername();
+        String phone = userRegisterRequest.getPhone();
+        String email = userRegisterRequest.getEmail();
+        if (StringUtils.isAnyBlank(userAccount, userPassword, checkPassword, planetCode,activeIds,avatarUrl,username,
+                phone,email
+                )) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"参数错误");
         }
-        long result = userService.userRegister(userAccount, userPassword, checkPassword, planetCode);
+        long result = userService.userRegister(userRegisterRequest);
         return ResultUtils.success(result);
     }
 
