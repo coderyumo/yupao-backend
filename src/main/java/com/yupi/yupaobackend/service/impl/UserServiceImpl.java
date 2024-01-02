@@ -259,6 +259,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         }
         Gson gson = new Gson();
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        for (String tagName : byTagsRequest.getTagNameList()) {
+            queryWrapper = queryWrapper.like("tags", tagName);
+        }
         Page<User> userPage = this.page(new Page<>(byTagsRequest.getPageNum(),byTagsRequest.getPageSize()),queryWrapper);
         List<User> newUserList = userPage.getRecords().stream()
                 .filter(
