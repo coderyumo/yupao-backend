@@ -10,8 +10,8 @@ import com.yupi.yupaobackend.exception.BusinessException;
 import com.yupi.yupaobackend.model.domain.Team;
 import com.yupi.yupaobackend.model.domain.User;
 import com.yupi.yupaobackend.model.domain.UserTeam;
-import com.yupi.yupaobackend.model.dto.AddTeamParam;
-import com.yupi.yupaobackend.model.dto.TeamQuery;
+import com.yupi.yupaobackend.model.request.AddTeamRequest;
+import com.yupi.yupaobackend.model.request.TeamQueryRequest;
 import com.yupi.yupaobackend.model.request.TeamDisbandRequest;
 import com.yupi.yupaobackend.model.request.TeamJoinRequest;
 import com.yupi.yupaobackend.model.request.TeamQuitRequest;
@@ -52,13 +52,13 @@ public class TeamController {
 
 
     @PostMapping("/add")
-    public BaseResponse<Long> addTeam(@RequestBody AddTeamParam addTeamParam) {
-        if (addTeamParam == null) {
+    public BaseResponse<Long> addTeam(@RequestBody AddTeamRequest addTeamRequest) {
+        if (addTeamRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
 
-        User loginUser = userService.getLoginUser(addTeamParam.getUserAccount(), addTeamParam.getUuid());
-        long result = teamService.addTeam(addTeamParam);
+        User loginUser = userService.getLoginUser(addTeamRequest.getUserAccount(), addTeamRequest.getUuid());
+        long result = teamService.addTeam(addTeamRequest);
         return ResultUtils.success(result);
     }
 
@@ -106,10 +106,10 @@ public class TeamController {
     }
 
     @GetMapping("/list")
-    public BaseResponse<List<TeamUserVO>> queryTeamsList(TeamQuery teamQuery) {
-        User loginUser = userService.getLoginUser(teamQuery.getUserAccount(), teamQuery.getUuid());
+    public BaseResponse<List<TeamUserVO>> queryTeamsList(TeamQueryRequest teamQueryRequest) {
+        User loginUser = userService.getLoginUser(teamQueryRequest.getUserAccount(), teamQueryRequest.getUuid());
         boolean isAdmin = userService.isAdmin(loginUser);
-        List<TeamUserVO> list = teamService.queryTeams(teamQuery,isAdmin);
+        List<TeamUserVO> list = teamService.queryTeams(teamQueryRequest,isAdmin);
         //当前用户是否已加入队伍
         return ResultUtils.success(list);
     }
@@ -117,14 +117,14 @@ public class TeamController {
 
 
     @GetMapping("/list/page")
-    public BaseResponse<Page<Team>> queryTeamsPage(TeamQuery teamQuery) {
-        if (teamQuery == null){
+    public BaseResponse<Page<Team>> queryTeamsPage(TeamQueryRequest teamQueryRequest) {
+        if (teamQueryRequest == null){
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
         Team team = new Team();
         QueryWrapper<Team> teamQueryWrapper = new QueryWrapper<>(team);
-        BeanUtils.copyProperties(teamQuery,team);
-        Page<Team> teamPage = teamService.page(new Page<>(teamQuery.getPageNum(),teamQuery.getPageSize()),teamQueryWrapper);
+        BeanUtils.copyProperties(teamQueryRequest,team);
+        Page<Team> teamPage = teamService.page(new Page<>(teamQueryRequest.getPageNum(), teamQueryRequest.getPageSize()),teamQueryWrapper);
         return ResultUtils.success(teamPage);
     }
 
@@ -158,26 +158,26 @@ public class TeamController {
 
     /**
      * 获取我创建的队伍
-     * @param teamQuery
+     * @param teamQueryRequest
      * @return
      */
     @GetMapping("/list/my/create")
-    public BaseResponse<List<TeamUserVO>> myCreateTeamsList(TeamQuery teamQuery) {
-        User loginUser = userService.getLoginUser(teamQuery.getUserAccount(), teamQuery.getUuid());
-        teamQuery.setUserId(loginUser.getId());
-        List<TeamUserVO> list = teamService.queryTeams(teamQuery,true);
+    public BaseResponse<List<TeamUserVO>> myCreateTeamsList(TeamQueryRequest teamQueryRequest) {
+        User loginUser = userService.getLoginUser(teamQueryRequest.getUserAccount(), teamQueryRequest.getUuid());
+        teamQueryRequest.setUserId(loginUser.getId());
+        List<TeamUserVO> list = teamService.queryTeams(teamQueryRequest,true);
         return ResultUtils.success(list);
     }
 
     /**
      * 获取我加入的队伍
-     * @param teamQuery
+     * @param teamQueryRequest
      * @return
      */
     @GetMapping("/list/my/join")
-    public BaseResponse<List<TeamUserVO>> myJoinTeamsList(TeamQuery teamQuery) {
+    public BaseResponse<List<TeamUserVO>> myJoinTeamsList(TeamQueryRequest teamQueryRequest) {
         //获取登录用户
-        User loginUser = userService.getLoginUser(teamQuery.getUserAccount(), teamQuery.getUuid());
+        User loginUser = userService.getLoginUser(teamQueryRequest.getUserAccount(), teamQueryRequest.getUuid());
         Long userId = loginUser.getId();
         QueryWrapper<UserTeam> queryWrapper = new QueryWrapper<>();
         queryWrapper.lambda().eq(UserTeam::getUserId,userId);
@@ -188,8 +188,8 @@ public class TeamController {
         if (CollectionUtils.isEmpty(idList)){
             return ResultUtils.success(null);
         }
-        teamQuery.setIdList(idList);
-        List<TeamUserVO> list = teamService.queryTeams(teamQuery,true);
+        teamQueryRequest.setIdList(idList);
+        List<TeamUserVO> list = teamService.queryTeams(teamQueryRequest,true);
         return ResultUtils.success(list);
     }
 }

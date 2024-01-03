@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.yupi.yupaobackend.model.domain.User;
 import com.yupi.yupaobackend.model.dto.UserDTO;
+import com.yupi.yupaobackend.model.request.AddFriendRequest;
 import com.yupi.yupaobackend.model.request.SearchUserByTagsRequest;
 import com.yupi.yupaobackend.model.request.UserRegisterRequest;
 
@@ -104,4 +105,25 @@ public interface UserService extends IService<User> {
      * @return
      */
     List<User> matchUser(int num, User loginUser);
+
+    /**
+     * 添加好友
+     * @param addFriendRequest
+     * @return
+     */
+    Boolean addFriend(AddFriendRequest addFriendRequest);
+
+    /**
+     * 添加好友
+     * @param addFriendRequest
+     * @return
+     */
+    Boolean increaseFriend(AddFriendRequest addFriendRequest);
+
+    /**
+     * 通知
+     * @param id
+     * @return
+     */
+    List<User> getAddFriendNotice(Long id);
 }

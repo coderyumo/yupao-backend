@@ -10,10 +10,7 @@ import com.yupi.yupaobackend.common.ResultUtils;
 import com.yupi.yupaobackend.exception.BusinessException;
 import com.yupi.yupaobackend.model.domain.User;
 import com.yupi.yupaobackend.model.dto.UserDTO;
-import com.yupi.yupaobackend.model.request.CurrentUserRequest;
-import com.yupi.yupaobackend.model.request.SearchUserByTagsRequest;
-import com.yupi.yupaobackend.model.request.UserLoginRequest;
-import com.yupi.yupaobackend.model.request.UserRegisterRequest;
+import com.yupi.yupaobackend.model.request.*;
 import com.yupi.yupaobackend.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -213,4 +210,23 @@ public class UserController {
         return ResultUtils.success(matchUser);
     }
 
+    @PostMapping("/friend/add")
+    public BaseResponse<Boolean> addFriend( @RequestBody AddFriendRequest addFriendRequest){
+
+        if (addFriendRequest == null){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+       Boolean result =  userService.addFriend(addFriendRequest);
+        return ResultUtils.success(result);
+    }
+
+    @PostMapping("/friend/increase")
+    public BaseResponse<Boolean> increaseFriend(@RequestBody AddFriendRequest addFriendRequest){
+
+        if (addFriendRequest == null){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+       Boolean result =  userService.increaseFriend(addFriendRequest);
+        return ResultUtils.success(result);
+    }
 }

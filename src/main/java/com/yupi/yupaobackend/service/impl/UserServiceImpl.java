@@ -1,6 +1,5 @@
 package com.yupi.yupaobackend.service.impl;
 
-
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.CollectionUtils;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -8,21 +7,30 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.yupi.yupaobackend.common.ErrorCode;
+import com.yupi.yupaobackend.config.MessageSendConfig;
 import com.yupi.yupaobackend.constant.UserConstant;
 import com.yupi.yupaobackend.exception.BusinessException;
 import com.yupi.yupaobackend.mapper.UserMapper;
+import com.yupi.yupaobackend.model.domain.MassageSendLog;
+import com.yupi.yupaobackend.model.domain.Notice;
 import com.yupi.yupaobackend.model.domain.User;
 import com.yupi.yupaobackend.model.dto.UserDTO;
+import com.yupi.yupaobackend.model.request.AddFriendRequest;
 import com.yupi.yupaobackend.model.request.SearchUserByTagsRequest;
 import com.yupi.yupaobackend.model.request.UserRegisterRequest;
+import com.yupi.yupaobackend.service.MassageSendLogService;
+import com.yupi.yupaobackend.service.NoticeService;
 import com.yupi.yupaobackend.service.UserService;
 import com.yupi.yupaobackend.utils.AlgorithmUtils;
 import javafx.util.Pair;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.amqp.rabbit.connection.CorrelationData;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.BeanUtils;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.DigestUtils;
 
 import javax.annotation.Resource;
@@ -49,10 +57,19 @@ import static com.yupi.yupaobackend.constant.UserConstant.USER_LOGIN_STATE;
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
 
     @Resource
-    RedisTemplate redisTemplate;
+    private RedisTemplate redisTemplate;
+
+    @Resource
+    private RabbitTemplate rabbitTemplate;
+
+    @Resource
+    MassageSendLogService massageSendLogService;
 
     @Resource
     private UserMapper userMapper;
+
+    @Resource
+    private NoticeService noticeService;
 
     /**
      * 盐值，混淆密码
@@ -62,7 +79,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     /**
      * 用户注册
      *
-     * @param registerRequest  用户注册
+     * @param registerRequest 用户注册
      * @return 新用户 id
      */
     @Override
@@ -76,14 +93,14 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         String username = registerRequest.getUsername();
         String phone = registerRequest.getPhone();
         String email = registerRequest.getEmail();
-        if (StringUtils.isAnyBlank(userAccount, userPassword, checkPassword, planetCode,activeIds,avatarUrl,username,
-                phone,email
+        if (StringUtils.isAnyBlank(userAccount, userPassword, checkPassword, planetCode, activeIds, avatarUrl, username,
+                phone, email
         )) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR,"参数错误");
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "参数错误");
         }
         // 1. 校验
-        if (StringUtils.isAnyBlank(userAccount, userPassword, checkPassword, planetCode,activeIds,avatarUrl,username)) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR,"参数错误");
+        if (StringUtils.isAnyBlank(userAccount, userPassword, checkPassword, planetCode, activeIds, avatarUrl, username)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "参数错误");
         }
         if (userAccount.length() < 4) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户账号至少四位");
@@ -123,12 +140,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         String encryptPassword = DigestUtils.md5DigestAsHex((SALT + userPassword).getBytes());
         // 3. 插入数据
         User user = new User();
-        BeanUtils.copyProperties(registerRequest,user);
+        BeanUtils.copyProperties(registerRequest, user);
         user.setUserPassword(encryptPassword);
         System.out.println("user = " + user);
         boolean saveResult = this.save(user);
         if (!saveResult) {
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR,"注册失败");
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "注册失败");
         }
         return user.getId();
     }
@@ -174,7 +191,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         User user = userMapper.selectOne(queryWrapper);
         // 用户不存在
         if (user == null) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR,"user login failed, userAccount cannot match " +
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "user login failed, userAccount cannot match " +
                     "userPassword");
         }
         // 3. 用户脱敏
@@ -262,7 +279,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         for (String tagName : byTagsRequest.getTagNameList()) {
             queryWrapper = queryWrapper.like("tags", tagName);
         }
-        Page<User> userPage = this.page(new Page<>(byTagsRequest.getPageNum(),byTagsRequest.getPageSize()),queryWrapper);
+        Page<User> userPage = this.page(new Page<>(byTagsRequest.getPageNum(), byTagsRequest.getPageSize()), queryWrapper);
         List<User> newUserList = userPage.getRecords().stream()
                 .filter(
                         user -> {
@@ -300,7 +317,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         for (String tagName : byTagsRequest.getTagNameList()) {
             queryWrapper = queryWrapper.like("tags", tagName);
         }
-        Page<User> users = this.page(new Page<>(byTagsRequest.getPageNum(),byTagsRequest.getPageSize()),queryWrapper);
+        Page<User> users = this.page(new Page<>(byTagsRequest.getPageNum(), byTagsRequest.getPageSize()), queryWrapper);
 
         return users;
     }
@@ -317,25 +334,25 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (oldUser == null) {
             throw new BusinessException(ErrorCode.NULL_ERROR);
         }
-        if (StringUtils.isNotBlank(userDTO.getUsername())){
+        if (StringUtils.isNotBlank(userDTO.getUsername())) {
             oldUser.setUsername(userDTO.getUsername());
         }
-        if (StringUtils.isNotBlank(userDTO.getEmail())){
+        if (StringUtils.isNotBlank(userDTO.getEmail())) {
             oldUser.setEmail(userDTO.getEmail());
         }
-        if (userDTO.getGender() != null){
+        if (userDTO.getGender() != null) {
             oldUser.setGender(userDTO.getGender());
         }
-        if (StringUtils.isNotBlank(userDTO.getPhone())){
+        if (StringUtils.isNotBlank(userDTO.getPhone())) {
             oldUser.setPhone(userDTO.getPhone());
         }
-        if (StringUtils.isNotBlank(userDTO.getAvatarUrl())){
+        if (StringUtils.isNotBlank(userDTO.getAvatarUrl())) {
             oldUser.setAvatarUrl(userDTO.getAvatarUrl());
         }
-        if (StringUtils.isNotBlank(userDTO.getTags())){
+        if (StringUtils.isNotBlank(userDTO.getTags())) {
             oldUser.setTags(userDTO.getTags());
         }
-        if (StringUtils.isNotBlank(userDTO.getAvatarUrl())){
+        if (StringUtils.isNotBlank(userDTO.getAvatarUrl())) {
             oldUser.setAvatarUrl(userDTO.getAvatarUrl());
         }
         return userMapper.updateById(oldUser);
@@ -356,8 +373,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     public List<User> matchUser(int num, User loginUser) {
         //有缓存直接读缓存
         String key = USER_MATCH_KEY + loginUser.getId();
-        List<User> cacheUserList =(List<User>) redisTemplate.opsForValue().get(key);
-        if (CollectionUtils.isNotEmpty(cacheUserList)){
+        List<User> cacheUserList = (List<User>) redisTemplate.opsForValue().get(key);
+        if (CollectionUtils.isNotEmpty(cacheUserList)) {
             return cacheUserList;
         }
 
@@ -409,11 +426,80 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         //查出来最匹配的用户，进行存储，并设置过期时间
         //写缓存
         try {
-            redisTemplate.opsForValue().set(key,finalUserList,5, TimeUnit.HOURS);
+            redisTemplate.opsForValue().set(key, finalUserList, 5, TimeUnit.MINUTES);
         } catch (Exception e) {
             log.error("redis set key error");
         }
         return finalUserList;
 
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Boolean addFriend(AddFriendRequest addFriendRequest) {
+        if (addFriendRequest == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+
+        //保存发送的数据到消息中间件
+        String msgId = UUID.randomUUID().toString();
+        Long recipientId = addFriendRequest.getRecipientId();
+        Long senderId = addFriendRequest.getSenderId();
+        MassageSendLog sendLog = new MassageSendLog();
+        sendLog.setMsgId(msgId);
+        //发送人id
+        sendLog.setSenderId(senderId);
+        //接收人id
+        sendLog.setRecipientId(recipientId);
+        //队列名字
+        sendLog.setRouteKey(MessageSendConfig.ADD_FRIEND_SEND_QUEUE_NAME);
+        //交换机名字
+        sendLog.setExchange(MessageSendConfig.ADD_FRIEND_SEND_EXCHANGE_NAME);
+        //表示消息正在发送
+        sendLog.setStatus(0);
+        //表示没重试
+        sendLog.setTryCount(0);
+        sendLog.setTryTime(new Date(System.currentTimeMillis() + 60 * 1000));
+        massageSendLogService.save(sendLog);
+
+        //发送添加好友的消息给MQ
+        //发送的消息需要带上CorrelationData，为了识别是哪一条消息
+        //要能够发送成功，对象必须序列化
+        rabbitTemplate.convertAndSend(MessageSendConfig.ADD_FRIEND_SEND_EXCHANGE_NAME,
+                MessageSendConfig.ADD_FRIEND_SEND_QUEUE_NAME,addFriendRequest,new CorrelationData(msgId));
+
+        return null;
+    }
+
+    @Override
+    public Boolean increaseFriend(AddFriendRequest addFriendRequest) {
+        if (addFriendRequest == null){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        Long recipientId = addFriendRequest.getRecipientId();
+        Long senderId = addFriendRequest.getSenderId();
+        Notice notice = new Notice();
+        notice.setSenderId(senderId);
+        notice.setRecipientId(recipientId);
+        boolean save = noticeService.save(notice);
+        if (!save){
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR,"好友申请失败");
+        }
+        return true;
+    }
+
+    @Override
+    public List<User> getAddFriendNotice(Long id) {
+        QueryWrapper<Notice> qw = new QueryWrapper<>();
+        qw.lambda().eq(Notice::getRecipientId,id);
+        List<Notice> list = noticeService.list(qw);
+        ArrayList<Long> applyUserId = new ArrayList<>();
+        for (Notice notice : list) {
+            applyUserId.add(notice.getSenderId());
+        }
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        queryWrapper.lambda().in(User::getId,applyUserId);
+        List<User> applyUserList = this.list(queryWrapper);
+        return applyUserList;
     }
 }

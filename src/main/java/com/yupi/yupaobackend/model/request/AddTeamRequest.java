@@ -1,4 +1,4 @@
-package com.yupi.yupaobackend.model.dto;
+package com.yupi.yupaobackend.model.request;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
@@ -12,7 +12,7 @@ import java.util.Date;
  * @create: 2023-12-29 15:50
  **/
 @Data
-public class AddTeamParam {
+public class AddTeamRequest {
     /**
      * 队伍名称
      */

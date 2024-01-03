@@ -9,8 +9,8 @@ import com.yupi.yupaobackend.mapper.TeamMapper;
 import com.yupi.yupaobackend.model.domain.Team;
 import com.yupi.yupaobackend.model.domain.User;
 import com.yupi.yupaobackend.model.domain.UserTeam;
-import com.yupi.yupaobackend.model.dto.AddTeamParam;
-import com.yupi.yupaobackend.model.dto.TeamQuery;
+import com.yupi.yupaobackend.model.request.AddTeamRequest;
+import com.yupi.yupaobackend.model.request.TeamQueryRequest;
 import com.yupi.yupaobackend.model.enums.TeamStatusEnum;
 import com.yupi.yupaobackend.model.request.TeamDisbandRequest;
 import com.yupi.yupaobackend.model.request.TeamJoinRequest;
@@ -51,55 +51,55 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public long addTeam(AddTeamParam addTeamParam) {
+    public long addTeam(AddTeamRequest addTeamRequest) {
         //1.请求参数是否为空
-        if (addTeamParam == null) {
+        if (addTeamRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
 
         //2.是否登录
-        User loginUser = userService.getLoginUser(addTeamParam.getUserAccount(), addTeamParam.getUuid());
+        User loginUser = userService.getLoginUser(addTeamRequest.getUserAccount(), addTeamRequest.getUuid());
         if (loginUser == null) {
             throw new BusinessException(ErrorCode.NOT_LOGIN);
         }
         final long userId = loginUser.getId();
         //3.校验信息
-        int MaxNum = Optional.ofNullable(addTeamParam.getMaxNum()).orElse(0);
+        int MaxNum = Optional.ofNullable(addTeamRequest.getMaxNum()).orElse(0);
         if (MaxNum < 1 || MaxNum > 20) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "队伍人数不满足要求");
         }
 
-        String name = addTeamParam.getName();
+        String name = addTeamRequest.getName();
         if (name.length() > 20 || StringUtils.isBlank(name)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "队伍标题过长或者标题为空");
         }
 
-        String description = addTeamParam.getDescription();
+        String description = addTeamRequest.getDescription();
         if (StringUtils.isNotBlank(description) && description.length() > 512) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "队伍描述过程过长");
         }
 
-        int status = Optional.ofNullable(addTeamParam.getStatus()).orElse(0);
+        int status = Optional.ofNullable(addTeamRequest.getStatus()).orElse(0);
         TeamStatusEnum statusEnum = TeamStatusEnum.getEnumByValue(status);
         if (statusEnum == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "队伍状态不满足要求");
         }
 
-        String password = addTeamParam.getPassword();
+        String password = addTeamRequest.getPassword();
         if (TeamStatusEnum.SECRET.equals(statusEnum)) {
             if ((StringUtils.isBlank(password) || password.length() > 32)) {
                 throw new BusinessException(ErrorCode.PARAMS_ERROR, "密码格式错误");
             }
         }
 
-        Date expireTime = addTeamParam.getExpireTime();
+        Date expireTime = addTeamRequest.getExpireTime();
         if (expireTime != null && expireTime.before(new Date())) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "超时时间不能小于当前时间");
         }
 
         Team team = new Team();
 
-        BeanUtils.copyProperties(addTeamParam, team);
+        BeanUtils.copyProperties(addTeamRequest, team);
         QueryWrapper<Team> queryWrapper = new QueryWrapper<>();
         queryWrapper.lambda().eq(Team::getUserId, userId);
         long count = this.count(queryWrapper);
@@ -139,9 +139,8 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         if (!oldTeam.getUserId().equals(loginUser.getId()) && !isAdmin) {
             throw new BusinessException(ErrorCode.NO_AUTH);
         }
-        TeamStatusEnum oldStatusEum = TeamStatusEnum.getEnumByValue(oldTeam.getStatus());
-        //查询查询旧队伍状态
-        //旧状态不为加密才走判断
+        TeamStatusEnum oldStatusEum = TeamStatusEnum.getEnumByValue(teamUpdateRequest.getStatus());
+        //状态不为加密才走判断
 
         if (!oldStatusEum.equals(TeamStatusEnum.SECRET)) {
             TeamStatusEnum statusEnum = TeamStatusEnum.getEnumByValue(teamUpdateRequest.getStatus());
@@ -150,6 +149,10 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
                     throw new BusinessException(ErrorCode.PARAMS_ERROR, "必须要有密码");
                 }
             }
+        }
+
+        if (oldStatusEum.equals(TeamStatusEnum.PUBLIC)){
+            teamUpdateRequest.setPassword("");
         }
 
         Team updateTeam = new Team();
@@ -351,30 +354,30 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
     }
 
     @Override
-    public List<TeamUserVO> queryTeams(TeamQuery teamQuery, Boolean isAdmin) {
+    public List<TeamUserVO> queryTeams(TeamQueryRequest teamQueryRequest, Boolean isAdmin) {
         //1. 从请求参数中取出队伍名称等查询条件，如果存在则作为查询条件
         //当前登录用户
-        User loginUser = userService.getLoginUser(teamQuery.getUserAccount(), teamQuery.getUuid());
+        User loginUser = userService.getLoginUser(teamQueryRequest.getUserAccount(), teamQueryRequest.getUuid());
 
         QueryWrapper<Team> queryWrapper = new QueryWrapper<>();
         queryWrapper.lambda()
-                .eq(teamQuery.getId() != null && teamQuery.getId() > 0, Team::getId, teamQuery.getId())
-                .in(!CollectionUtils.isEmpty(teamQuery.getIdList()), Team::getId, teamQuery.getIdList())
-                .like(StringUtils.isNotBlank(teamQuery.getName()), Team::getName, teamQuery.getName())
-                .like(StringUtils.isNotBlank(teamQuery.getDescription()), Team::getDescription, teamQuery.getDescription())
-                .apply(teamQuery.getMaxNum() != null && teamQuery.getMaxNum() <= 10, "max_num <= {0}", teamQuery.getMaxNum())
-                .eq(teamQuery.getUserId() != null && teamQuery.getUserId() > 0, Team::getUserId, teamQuery.getUserId());
+                .eq(teamQueryRequest.getId() != null && teamQueryRequest.getId() > 0, Team::getId, teamQueryRequest.getId())
+                .in(!CollectionUtils.isEmpty(teamQueryRequest.getIdList()), Team::getId, teamQueryRequest.getIdList())
+                .like(StringUtils.isNotBlank(teamQueryRequest.getName()), Team::getName, teamQueryRequest.getName())
+                .like(StringUtils.isNotBlank(teamQueryRequest.getDescription()), Team::getDescription, teamQueryRequest.getDescription())
+                .apply(teamQueryRequest.getMaxNum() != null && teamQueryRequest.getMaxNum() <= 10, "max_num <= {0}", teamQueryRequest.getMaxNum())
+                .eq(teamQueryRequest.getUserId() != null && teamQueryRequest.getUserId() > 0, Team::getUserId, teamQueryRequest.getUserId());
 
-        if (StringUtils.isNotBlank(teamQuery.getSearchText())) {
+        if (StringUtils.isNotBlank(teamQueryRequest.getSearchText())) {
             queryWrapper.lambda()
-                    .like(Team::getName, teamQuery.getSearchText())
+                    .like(Team::getName, teamQueryRequest.getSearchText())
                     .or()
-                    .like(Team::getDescription, teamQuery.getSearchText());
+                    .like(Team::getDescription, teamQueryRequest.getSearchText());
         }
 
         queryWrapper.lambda().and(qw -> qw.gt(Team::getExpireTime, new Date()).or().isNull(Team::getExpireTime));
 
-        Integer status = teamQuery.getStatus();
+        Integer status = teamQueryRequest.getStatus();
         TeamStatusEnum statusEnum = TeamStatusEnum.getEnumByValue(status);
         if (statusEnum != null && (statusEnum.equals(TeamStatusEnum.PUBLIC) || statusEnum.equals(TeamStatusEnum.SECRET))) {
             queryWrapper.lambda().eq(Team::getStatus, status);

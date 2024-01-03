@@ -3,8 +3,8 @@ package com.yupi.yupaobackend.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.yupi.yupaobackend.model.domain.Team;
 import com.yupi.yupaobackend.model.domain.User;
-import com.yupi.yupaobackend.model.dto.AddTeamParam;
-import com.yupi.yupaobackend.model.dto.TeamQuery;
+import com.yupi.yupaobackend.model.request.AddTeamRequest;
+import com.yupi.yupaobackend.model.request.TeamQueryRequest;
 import com.yupi.yupaobackend.model.request.TeamDisbandRequest;
 import com.yupi.yupaobackend.model.request.TeamJoinRequest;
 import com.yupi.yupaobackend.model.request.TeamQuitRequest;
@@ -22,17 +22,17 @@ public interface TeamService extends IService<Team> {
 
     /**
      * 创建队伍
-     * @param addTeamParam
+     * @param addTeamRequest
      * @return
      */
-    long addTeam(AddTeamParam addTeamParam);
+    long addTeam(AddTeamRequest addTeamRequest);
 
     /**
      * 搜搜队伍
-     * @param teamQuery
+     * @param teamQueryRequest
      * @return
      */
-    List<TeamUserVO> queryTeams(TeamQuery teamQuery,Boolean isAdmin);
+    List<TeamUserVO> queryTeams(TeamQueryRequest teamQueryRequest, Boolean isAdmin);
 
     /**
      * 修改队伍

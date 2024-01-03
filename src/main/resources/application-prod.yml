@@ -17,6 +17,12 @@ spring:
     port: 6379
     password: 123
     database: 0
+  rabbitmq:
+    host: 101.35.26.98
+    port: 5672
+    username: guest
+    password: guest
+    virtual-host: /
   mvc:
     pathmatch:
       matching-strategy: ANT_PATH_MATCHER

@@ -101,6 +101,11 @@ public class User implements Serializable {
      */
     private String tags;
 
+    /**
+     * 好友列表Id JSON
+     */
+    private String friendId;
+
     // https://github.com/liyupi
 
     @TableField(exist = false)

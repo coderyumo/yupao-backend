@@ -1,4 +1,4 @@
-package com.yupi.yupaobackend.model.dto;
+package com.yupi.yupaobackend.model.request;
 
 import com.yupi.yupaobackend.common.PageRequest;
 import lombok.Data;
@@ -13,7 +13,7 @@ import java.util.List;
  **/
 @Data
 @EqualsAndHashCode(callSuper = true)
-public class TeamQuery extends PageRequest {
+public class TeamQueryRequest extends PageRequest {
 
     private Long id;
 
