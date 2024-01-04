@@ -11,12 +11,12 @@ spring:
     timeout: 86400
     store-type: redis
   redis:
-    host: 192.168.203.129
+    host: 192.168.102.128
     port: 6379
     password: 123
     database: 0
   rabbitmq:
-    host: 192.168.203.129
+    host: 192.168.102.128
     port: 5672
     username: guest
     password: guest

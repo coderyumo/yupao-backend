@@ -7,7 +7,6 @@ import com.yupi.yupaobackend.service.MassageSendLogService;
 import com.yupi.yupaobackend.service.impl.UserServiceImpl;
 import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;
@@ -35,7 +34,7 @@ public class MessageSendJob {
     /**
      * 每隔十秒执行一次
      */
-    @Scheduled(cron = "0/10 * * * * ?")
+//    @Scheduled(cron = "0/10 * * * * ?")
     public void messageSend() {
         QueryWrapper<MassageSendLog> qw = new QueryWrapper<>();
         qw.lambda()

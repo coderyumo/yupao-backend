@@ -47,4 +47,9 @@ public class UserDTO implements Serializable {
      * 标签
      */
     private String tags;
+
+    /**
+     * 自我介绍
+     */
+    private String profile;
 }

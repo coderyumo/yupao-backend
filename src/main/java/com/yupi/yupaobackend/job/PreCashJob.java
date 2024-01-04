@@ -38,7 +38,7 @@ public class PreCashJob {
 //    List<Long> mainUserList = Collections.singletonList(3L);
 
     // 每天晚上 23:30 执行一次任务
-    @Scheduled(cron = "0 57 22 * * ?")
+    @Scheduled(cron = "0 30 23 * * ?")
     public void doCashRecommendTask() {
         RLock lock = redissonClient.getLock("yupao:prechchsjob:docache:lock");
 
@@ -46,9 +46,9 @@ public class PreCashJob {
             //只有一个线程会获取锁
             if (lock.tryLock(0, -1, TimeUnit.MILLISECONDS)) {
                 List<Long> mainUserList = new ArrayList<>();
-                QueryWrapper<User> queryWrapper1 = new QueryWrapper<>();
-                Page<User> userPage1 = userService.page(new Page<>(1, 20), queryWrapper1);
-                for (User user : userPage1.getRecords()) {
+                //为所有用户进行用户推荐
+                List<User> list = userService.list();
+                for (User user : list) {
                     mainUserList.add(user.getId());
                 }
                 for (Long userId : mainUserList) {
@@ -60,7 +60,7 @@ public class PreCashJob {
 
                     //写缓存
                     try {
-                        redisTemplate.opsForValue().set(key, userPage, 12, TimeUnit.HOURS);
+                        redisTemplate.opsForValue().set(key, userPage, 1, TimeUnit.HOURS);
                     } catch (Exception e) {
                         log.error("redis set key error");
                     }

@@ -355,6 +355,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (StringUtils.isNotBlank(userDTO.getAvatarUrl())) {
             oldUser.setAvatarUrl(userDTO.getAvatarUrl());
         }
+        if (StringUtils.isNotBlank(userDTO.getProfile())) {
+            oldUser.setProfile(userDTO.getProfile());
+        }
         return userMapper.updateById(oldUser);
     }
 
