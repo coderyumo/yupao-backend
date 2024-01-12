@@ -194,7 +194,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 3. 用户脱敏
         User safetyUser = getSafetyUser(user);
         String newUuid = UUID.randomUUID().toString().replace("-", "");
-        log.info("uuid ==================> {}", uuid);
+        log.info("uuid ==================> {}",  uuid);
         String token = userAccount + "-" + newUuid; // 1. 校验
         // 4. 存储用户信息到Redis中,设置key过期时间和token过期时间
         redisTemplate.opsForHash().put(TOKEN_KEY + newUuid, safetyUser.getUserAccount(), safetyUser);
