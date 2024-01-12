@@ -6,6 +6,8 @@ import com.yupi.yupaobackend.service.MessageSendLogService;
 import com.yupi.yupaobackend.mapper.MassageSendLogMapper;
 import org.springframework.stereotype.Service;
 
+import javax.annotation.Resource;
+
 /**
 * @author linli
 * @description 针对表【massage_send_log】的数据库操作Service实现
@@ -14,6 +16,15 @@ import org.springframework.stereotype.Service;
 @Service
 public class MessageSendLogServiceImpl extends ServiceImpl<MassageSendLogMapper, MessageSendLog>
     implements MessageSendLogService {
+
+    @Resource
+    MassageSendLogMapper massageSendLogMapper;
+
+    @Override
+    public MessageSendLog getBySenderIdAndRecipientId(Long senderId, Long recipientId) {
+
+        return massageSendLogMapper.getBySenderIdAndRecipientId(senderId,recipientId);
+    }
 
 }
 

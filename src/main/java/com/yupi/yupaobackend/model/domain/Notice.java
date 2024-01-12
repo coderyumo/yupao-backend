@@ -20,7 +20,7 @@ public class Notice implements Serializable {
     private Long id;
 
     /**
-     * 添加好友发送人id
+     * 发送人id
      */
     private Long senderId;
 
@@ -30,9 +30,19 @@ public class Notice implements Serializable {
     private Long recipientId;
 
     /**
+     * 添加好友状态
+     */
+    private Integer addFriendStatus;
+
+    /**
      * 邀请人Id
      */
     private Long inviterId;
+
+    /**
+     * 被邀请人Id
+     */
+    private Long inviteeId;
 
     /**
      * 创建时间

@@ -9,7 +9,7 @@ public enum AddFriendStatusEnum {
     ADD_SUCCESS(1, "添加成功"),
     ADD_ERROR(2, "添加失败");
 
-    private int value;
+    private Integer value;
 
     private String text;
 

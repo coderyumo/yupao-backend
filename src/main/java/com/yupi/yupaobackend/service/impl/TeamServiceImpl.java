@@ -47,7 +47,7 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
     private  UserTeamService userTeamService;
 
     @Resource
-    private   RedissonClient redissonClient;
+    private RedissonClient redissonClient;
 
     @Override
     @Transactional(rollbackFor = Exception.class)

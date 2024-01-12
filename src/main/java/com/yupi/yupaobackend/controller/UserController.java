@@ -232,13 +232,10 @@ public class UserController {
         return ResultUtils.success(result);
     }
 
-    @PostMapping("/friend/increase")
-    public BaseResponse<Boolean> increaseFriend(@RequestBody AddFriendRequest addFriendRequest) {
+    @PostMapping("/friend/agree")
+    public BaseResponse<Boolean> agreeFriend(@RequestBody AddFriendRequest addFriendRequest) {
 
-        if (addFriendRequest == null) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR);
-        }
-        Boolean result = userService.increaseFriend(addFriendRequest);
-        return ResultUtils.success(result);
+
+        return ResultUtils.success(true);
     }
 }

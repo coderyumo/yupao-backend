@@ -5,18 +5,28 @@
 <mapper namespace="com.yupi.yupaobackend.mapper.NoticeMapper">
 
     <resultMap id="BaseResultMap" type="com.yupi.yupaobackend.model.domain.Notice">
-            <id property="id" column="id" jdbcType="BIGINT"/>
-            <result property="senderId" column="senderId" jdbcType="BIGINT"/>
-            <result property="recipientId" column="recipientId" jdbcType="BIGINT"/>
-            <result property="inviterId" column="InviterId" jdbcType="BIGINT"/>
-            <result property="createTime" column="createTime" jdbcType="TIMESTAMP"/>
-            <result property="updateTime" column="updateTime" jdbcType="TIMESTAMP"/>
-            <result property="isDelete" column="isDelete" jdbcType="TINYINT"/>
+        <id property="id" column="id" jdbcType="BIGINT"/>
+        <result property="senderId" column="senderId" jdbcType="BIGINT"/>
+        <result property="addFriendStatus" column="addFriendStatus" jdbcType="TINYINT"/>
+        <result property="recipientId" column="recipientId" jdbcType="BIGINT"/>
+        <result property="inviterId" column="InviterId" jdbcType="BIGINT"/>
+        <result property="inviteeId" column="inviteeId" jdbcType="BIGINT"/>
+        <result property="createTime" column="createTime" jdbcType="TIMESTAMP"/>
+        <result property="updateTime" column="updateTime" jdbcType="TIMESTAMP"/>
+        <result property="isDelete" column="isDelete" jdbcType="TINYINT"/>
     </resultMap>
 
     <sql id="Base_Column_List">
-        id,senderId,recipientId,
+        id
+        ,senderId,recipientId,addFriendStatus,inviteeId
         InviterId,createTime,updateTime,
         isDelete
     </sql>
+    <select id="getBySenderIdAndRecipientId" resultType="com.yupi.yupaobackend.model.domain.Notice">
+        select *
+        from notice
+        where senderId = #{senderId}
+          and recipientId = #{recipientId}
+          and addFriendStatus = 0;
+    </select>
 </mapper>

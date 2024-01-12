@@ -1,6 +1,7 @@
 package com.yupi.yupaobackend.model.request;
 
 import lombok.Data;
+import lombok.ToString;
 
 import java.io.Serializable;
 
@@ -10,6 +11,7 @@ import java.io.Serializable;
  * @create: 2024-01-03 13:28
  **/
 @Data
+@ToString
 public class AddFriendRequest implements Serializable {
 
     private static final long serialVersionUID = -3875902490135062967L;
@@ -21,5 +23,7 @@ public class AddFriendRequest implements Serializable {
     private String userAccount;
 
     private String uuid;
+
+    private Boolean isAgree;
 
 }

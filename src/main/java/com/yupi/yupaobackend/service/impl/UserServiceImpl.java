@@ -1,5 +1,7 @@
 package com.yupi.yupaobackend.service.impl;
 
+import cn.hutool.json.JSONArray;
+import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.CollectionUtils;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -7,11 +9,9 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.yupi.yupaobackend.common.ErrorCode;
-import com.yupi.yupaobackend.config.MessageSendConfig;
 import com.yupi.yupaobackend.constant.UserConstant;
 import com.yupi.yupaobackend.exception.BusinessException;
 import com.yupi.yupaobackend.mapper.UserMapper;
-import com.yupi.yupaobackend.model.domain.MessageSendLog;
 import com.yupi.yupaobackend.model.domain.Notice;
 import com.yupi.yupaobackend.model.domain.User;
 import com.yupi.yupaobackend.model.dto.UserDTO;
@@ -19,19 +19,18 @@ import com.yupi.yupaobackend.model.enums.AddFriendStatusEnum;
 import com.yupi.yupaobackend.model.request.AddFriendRequest;
 import com.yupi.yupaobackend.model.request.SearchUserByTagsRequest;
 import com.yupi.yupaobackend.model.request.UserRegisterRequest;
-import com.yupi.yupaobackend.service.MessageSendLogService;
 import com.yupi.yupaobackend.service.NoticeService;
 import com.yupi.yupaobackend.service.UserService;
 import com.yupi.yupaobackend.utils.AlgorithmUtils;
 import javafx.util.Pair;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.amqp.rabbit.connection.CorrelationData;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.springframework.beans.BeanUtils;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.DigestUtils;
 
 import javax.annotation.Resource;
@@ -42,8 +41,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import static com.yupi.yupaobackend.constant.RedisConstant.TOKEN_KEY;
-import static com.yupi.yupaobackend.constant.RedisConstant.USER_MATCH_KEY;
+import static com.yupi.yupaobackend.constant.RedisConstant.*;
 import static com.yupi.yupaobackend.constant.UserConstant.USER_LOGIN_STATE;
 
 /**
@@ -61,17 +59,14 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     private RedisTemplate redisTemplate;
 
     @Resource
-    private RabbitTemplate rabbitTemplate;
-
-    @Resource
-    private   MessageSendLogService messageSendLogService;
-
-    @Resource
     private UserMapper userMapper;
 
     @Resource
+    @Lazy
     private NoticeService noticeService;
 
+    @Resource
+    private RedissonClient redissonClient;
     /**
      * 盐值，混淆密码
      */
@@ -439,63 +434,52 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public Boolean addFriend(AddFriendRequest addFriendRequest) {
         if (addFriendRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-
-        //判断发送人id和接收人id是否存在
-        User sender = this.getById(addFriendRequest.getSenderId());
-        User recipient = this.getById(addFriendRequest.getRecipientId());
-        if (sender != null && recipient != null) {
-            Long recipientId = addFriendRequest.getRecipientId();
-            Long senderId = addFriendRequest.getSenderId();
-
-            //判断是否已经发送好友申请，如果状态为添加失败则可以继续添加
-            QueryWrapper<MessageSendLog> queryWrapper = new QueryWrapper<>();
-            queryWrapper.lambda().eq(MessageSendLog::getSenderId,senderId).eq(MessageSendLog::getRecipientId,
-                    recipientId);
-            List<MessageSendLog> list = messageSendLogService.list(queryWrapper);
-            for (MessageSendLog sendLog : list) {
-                //正在发送好友申请
-                if (sendLog.getAddFriendStatus().equals(AddFriendStatusEnum.ADDING.getValue())){
-                    throw new BusinessException(ErrorCode.PARAMS_ERROR, "正在发送好友申请，请勿重新发送!");
+        RLock lock = redissonClient.getLock(ADD_FRIEND_KEY);
+        try {
+            //只有一个线程会获取锁
+            //判断发送人id和接收人id是否存在
+            User sender = this.getById(addFriendRequest.getSenderId());
+            User recipient = this.getById(addFriendRequest.getRecipientId());
+            if (sender != null && recipient != null) {
+                Long recipientId = addFriendRequest.getRecipientId();
+                Long senderId = addFriendRequest.getSenderId();
+                //判断是否已经发送好友申请，如果状态为添加失败则可以继续添加
+                QueryWrapper<Notice> queryWrapper = new QueryWrapper<>();
+                queryWrapper.lambda().eq(Notice::getSenderId, senderId).eq(Notice::getRecipientId,
+                        recipientId);
+                List<Notice> list = noticeService.list(queryWrapper);
+                for (Notice notice : list) {
+                    //正在发送好友申请
+                    if (notice.getAddFriendStatus().equals(AddFriendStatusEnum.ADDING.getValue())) {
+                        throw new BusinessException(ErrorCode.PARAMS_ERROR, "正在发送好友申请，请勿重新发送!");
+                    }
+                    //添加成功，对方是你的好友
+                    if (notice.getAddFriendStatus().equals(AddFriendStatusEnum.ADD_SUCCESS.getValue())) {
+                        throw new BusinessException(ErrorCode.PARAMS_ERROR, "对方已经是您的好友，请勿重新添加!");
+                    }
                 }
-                //添加成功，对方是你的好友
-                if (sendLog.getAddFriendStatus().equals(AddFriendStatusEnum.ADD_SUCCESS.getValue())){
-                    throw new BusinessException(ErrorCode.PARAMS_ERROR, "对方已经是您的好友，请勿重新添加!");
+                // 保存到消息通知表中
+                Notice notice = new Notice();
+                notice.setSenderId(senderId);
+                notice.setRecipientId(recipientId);
+                notice.setAddFriendStatus(AddFriendStatusEnum.ADDING.getValue());
+                boolean save = noticeService.save(notice);
+                if (!save) {
+                    throw new BusinessException(ErrorCode.PARAMS_ERROR, "保存消息通知表失败!");
                 }
+                return true;
             }
-
-            //保存发送的数据到消息中间件
-            String msgId = UUID.randomUUID().toString();
-            MessageSendLog sendLog = new MessageSendLog();
-            sendLog.setMsgId(msgId);
-            //发送人id
-            sendLog.setSenderId(senderId);
-            //接收人id
-            sendLog.setRecipientId(recipientId);
-            //队列名字
-            sendLog.setRouteKey(MessageSendConfig.ADD_FRIEND_SEND_QUEUE_NAME);
-            //交换机名字
-            sendLog.setExchange(MessageSendConfig.ADD_FRIEND_SEND_EXCHANGE_NAME);
-            //表示消息正在发送
-            sendLog.setStatus(0);
-            //表示没重试
-            sendLog.setTryCount(0);
-            sendLog.setTryTime(new Date(System.currentTimeMillis() + 60 * 1000));
-            messageSendLogService.save(sendLog);
-
-            //发送添加好友的消息给MQ
-            //发送的消息需要带上CorrelationData，为了识别是哪一条消息
-            //要能够发送成功，对象必须序列化
-            rabbitTemplate.convertAndSend(MessageSendConfig.ADD_FRIEND_SEND_EXCHANGE_NAME,
-                    MessageSendConfig.ADD_FRIEND_SEND_QUEUE_NAME, addFriendRequest, new CorrelationData(msgId));
-            return true;
+        } finally {
+            //只能释放自己的锁
+            if (lock.isHeldByCurrentThread()) {
+                lock.unlock();
+            }
         }
-
-        return false;
+        return true;
     }
 
     @Override
@@ -529,4 +513,25 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         List<User> applyUserList = this.list(queryWrapper);
         return applyUserList;
     }
+
+
+    /**
+     * 判断是否已经是好友
+     *
+     * @param user
+     * @param friendId
+     */
+    private void checkIfAlreadyFriends(User user, Long friendId) {
+        if (user.getFriendId() != null) {
+            String friendIdStr = user.getFriendId();
+            JSONArray jsonArray = JSONUtil.parseArray(friendIdStr);
+            for (Object id : jsonArray) {
+                if (id.equals(friendId)) {
+                    throw new BusinessException(ErrorCode.PARAMS_ERROR, "对方已经是您的好友，请勿重新添加!");
+                }
+            }
+        }
+    }
+
+
 }

@@ -10,4 +10,5 @@ import com.baomidou.mybatisplus.extension.service.IService;
 */
 public interface MessageSendLogService extends IService<MessageSendLog> {
 
+    MessageSendLog getBySenderIdAndRecipientId(Long senderId, Long recipientId);
 }

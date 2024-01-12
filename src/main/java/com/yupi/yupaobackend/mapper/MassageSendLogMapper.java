@@ -1,7 +1,8 @@
 package com.yupi.yupaobackend.mapper;
 
-import com.yupi.yupaobackend.model.domain.MessageSendLog;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.yupi.yupaobackend.model.domain.MessageSendLog;
+import org.apache.ibatis.annotations.Param;
 
 /**
 * @author linli
@@ -11,6 +12,7 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 */
 public interface MassageSendLogMapper extends BaseMapper<MessageSendLog> {
 
+    MessageSendLog getBySenderIdAndRecipientId(@Param("senderId") Long senderId, @Param("recipientId") Long recipientId);
 }
 
 

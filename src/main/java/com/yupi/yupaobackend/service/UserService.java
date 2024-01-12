@@ -126,4 +126,5 @@ public interface UserService extends IService<User> {
      * @return
      */
     List<User> getAddFriendNotice(Long id);
+
 }

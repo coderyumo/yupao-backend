@@ -5,25 +5,33 @@
 <mapper namespace="com.yupi.yupaobackend.mapper.MassageSendLogMapper">
 
     <resultMap id="BaseResultMap" type="com.yupi.yupaobackend.model.domain.MessageSendLog">
-            <result property="msgId" column="msgId" jdbcType="VARCHAR"/>
-            <result property="senderId" column="senderId" jdbcType="BIGINT"/>
-            <result property="recipientId" column="recipientId" jdbcType="BIGINT"/>
-            <result property="addFriendStatus" column="addFriendStatus" jdbcType="TINYINT"/>
-            <result property="inviterId" column="inviterId" jdbcType="BIGINT"/>
-            <result property="routeKey" column="routeKey" jdbcType="VARCHAR"/>
-            <result property="status" column="status" jdbcType="TINYINT"/>
-            <result property="exchange" column="exchange" jdbcType="VARCHAR"/>
-            <result property="tryCount" column="tryCount" jdbcType="TINYINT"/>
-            <result property="tryTime" column="tryTime" jdbcType="TIMESTAMP"/>
-            <result property="createTime" column="createTime" jdbcType="TIMESTAMP"/>
-            <result property="updateTime" column="updateTime" jdbcType="TIMESTAMP"/>
-            <result property="isDelete" column="isDelete" jdbcType="TINYINT"/>
+        <result property="msgId" column="msgId" jdbcType="VARCHAR"/>
+        <result property="senderId" column="senderId" jdbcType="BIGINT"/>
+        <result property="recipientId" column="recipientId" jdbcType="BIGINT"/>
+        <result property="addFriendStatus" column="addFriendStatus" jdbcType="TINYINT"/>
+        <result property="inviterId" column="inviterId" jdbcType="BIGINT"/>
+        <result property="routeKey" column="routeKey" jdbcType="VARCHAR"/>
+        <result property="status" column="status" jdbcType="TINYINT"/>
+        <result property="exchange" column="exchange" jdbcType="VARCHAR"/>
+        <result property="tryCount" column="tryCount" jdbcType="TINYINT"/>
+        <result property="tryTime" column="tryTime" jdbcType="TIMESTAMP"/>
+        <result property="createTime" column="createTime" jdbcType="TIMESTAMP"/>
+        <result property="updateTime" column="updateTime" jdbcType="TIMESTAMP"/>
+        <result property="isDelete" column="isDelete" jdbcType="TINYINT"/>
     </resultMap>
 
     <sql id="Base_Column_List">
-        msgId,senderId,inviterId,
+        msgId
+        ,senderId,inviterId,
         recipientId,routeKey,status,
         exchange,tryCount,tryTime,addFriendStatus,
         createTime,updateTime,isDelete
     </sql>
+    <select id="getBySenderIdAndRecipientId" resultType="com.yupi.yupaobackend.model.domain.MessageSendLog">
+        select *
+        from massage_send_log
+        where senderId = #{senderId}
+          and recipientId = #{recipientId}
+          and addFriendStatus = 0
+    </select>
 </mapper>

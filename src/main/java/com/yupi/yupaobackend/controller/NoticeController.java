@@ -6,7 +6,6 @@ import com.yupi.yupaobackend.common.ResultUtils;
 import com.yupi.yupaobackend.exception.BusinessException;
 import com.yupi.yupaobackend.model.domain.User;
 import com.yupi.yupaobackend.service.NoticeService;
-import com.yupi.yupaobackend.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,24 +26,22 @@ import java.util.List;
 @Slf4j
 public class NoticeController {
 
-
-    @Resource
-    private  UserService userService;
-
     @Resource
     private  NoticeService noticeService;
 
-    @GetMapping("/list")
+    /**
+     * 获取好友申请信息
+     * @param id
+     * @return
+     */
+    @GetMapping("/friend/add")
     public BaseResponse<List<User>> getNotice(Long id){
         //校验
         if (id == null || id <0){
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        List<User> applyUserList = userService.getAddFriendNotice(id);
-
-
-
-        return ResultUtils.success(applyUserList);
+        List<User> userList = noticeService.getNoticeData(id);
+        return ResultUtils.success(userList);
     }
 
 
