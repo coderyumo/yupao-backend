@@ -29,7 +29,7 @@ import java.util.List;
  **/
 @RestController
 @RequestMapping("/file")
-@CrossOrigin(origins = {"http://user.code-li.fun","http://yupao.code-li.fun"})
+@CrossOrigin(origins = {"http://user.code-li.fun","http://yupao.code-li.fun","http://4c8b5c0b.r3.cpolar.top/"})
 @Slf4j
 public class FileController {
 
@@ -104,7 +104,9 @@ public class FileController {
 
     @GetMapping("/{fileUUID}")
     public void down(@PathVariable String fileUUID, HttpServletResponse response) throws IOException {
-        File file = new File(filePath  + fileUUID);
+        //服务器写法
+//        File file = new File(filePath  + fileUUID);
+        File file = new File(filePath + "\\" + fileUUID);
         ServletOutputStream os = response.getOutputStream();
         response.addHeader("Content-Disposition", "attachment;filename" + URLEncoder.encode(fileUUID, "UTF-8"));
         response.setContentType("application/octet-stream");

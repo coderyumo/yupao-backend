@@ -11,14 +11,15 @@ import com.yupi.yupaobackend.config.MessageSendConfig;
 import com.yupi.yupaobackend.constant.UserConstant;
 import com.yupi.yupaobackend.exception.BusinessException;
 import com.yupi.yupaobackend.mapper.UserMapper;
-import com.yupi.yupaobackend.model.domain.MassageSendLog;
+import com.yupi.yupaobackend.model.domain.MessageSendLog;
 import com.yupi.yupaobackend.model.domain.Notice;
 import com.yupi.yupaobackend.model.domain.User;
 import com.yupi.yupaobackend.model.dto.UserDTO;
+import com.yupi.yupaobackend.model.enums.AddFriendStatusEnum;
 import com.yupi.yupaobackend.model.request.AddFriendRequest;
 import com.yupi.yupaobackend.model.request.SearchUserByTagsRequest;
 import com.yupi.yupaobackend.model.request.UserRegisterRequest;
-import com.yupi.yupaobackend.service.MassageSendLogService;
+import com.yupi.yupaobackend.service.MessageSendLogService;
 import com.yupi.yupaobackend.service.NoticeService;
 import com.yupi.yupaobackend.service.UserService;
 import com.yupi.yupaobackend.utils.AlgorithmUtils;
@@ -63,7 +64,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     private RabbitTemplate rabbitTemplate;
 
     @Resource
-    MassageSendLogService massageSendLogService;
+    private   MessageSendLogService messageSendLogService;
 
     @Resource
     private UserMapper userMapper;
@@ -444,39 +445,62 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
 
-        //保存发送的数据到消息中间件
-        String msgId = UUID.randomUUID().toString();
-        Long recipientId = addFriendRequest.getRecipientId();
-        Long senderId = addFriendRequest.getSenderId();
-        MassageSendLog sendLog = new MassageSendLog();
-        sendLog.setMsgId(msgId);
-        //发送人id
-        sendLog.setSenderId(senderId);
-        //接收人id
-        sendLog.setRecipientId(recipientId);
-        //队列名字
-        sendLog.setRouteKey(MessageSendConfig.ADD_FRIEND_SEND_QUEUE_NAME);
-        //交换机名字
-        sendLog.setExchange(MessageSendConfig.ADD_FRIEND_SEND_EXCHANGE_NAME);
-        //表示消息正在发送
-        sendLog.setStatus(0);
-        //表示没重试
-        sendLog.setTryCount(0);
-        sendLog.setTryTime(new Date(System.currentTimeMillis() + 60 * 1000));
-        massageSendLogService.save(sendLog);
+        //判断发送人id和接收人id是否存在
+        User sender = this.getById(addFriendRequest.getSenderId());
+        User recipient = this.getById(addFriendRequest.getRecipientId());
+        if (sender != null && recipient != null) {
+            Long recipientId = addFriendRequest.getRecipientId();
+            Long senderId = addFriendRequest.getSenderId();
 
-        //发送添加好友的消息给MQ
-        //发送的消息需要带上CorrelationData，为了识别是哪一条消息
-        //要能够发送成功，对象必须序列化
-        rabbitTemplate.convertAndSend(MessageSendConfig.ADD_FRIEND_SEND_EXCHANGE_NAME,
-                MessageSendConfig.ADD_FRIEND_SEND_QUEUE_NAME,addFriendRequest,new CorrelationData(msgId));
+            //判断是否已经发送好友申请，如果状态为添加失败则可以继续添加
+            QueryWrapper<MessageSendLog> queryWrapper = new QueryWrapper<>();
+            queryWrapper.lambda().eq(MessageSendLog::getSenderId,senderId).eq(MessageSendLog::getRecipientId,
+                    recipientId);
+            List<MessageSendLog> list = messageSendLogService.list(queryWrapper);
+            for (MessageSendLog sendLog : list) {
+                //正在发送好友申请
+                if (sendLog.getAddFriendStatus().equals(AddFriendStatusEnum.ADDING.getValue())){
+                    throw new BusinessException(ErrorCode.PARAMS_ERROR, "正在发送好友申请，请勿重新发送!");
+                }
+                //添加成功，对方是你的好友
+                if (sendLog.getAddFriendStatus().equals(AddFriendStatusEnum.ADD_SUCCESS.getValue())){
+                    throw new BusinessException(ErrorCode.PARAMS_ERROR, "对方已经是您的好友，请勿重新添加!");
+                }
+            }
 
-        return null;
+            //保存发送的数据到消息中间件
+            String msgId = UUID.randomUUID().toString();
+            MessageSendLog sendLog = new MessageSendLog();
+            sendLog.setMsgId(msgId);
+            //发送人id
+            sendLog.setSenderId(senderId);
+            //接收人id
+            sendLog.setRecipientId(recipientId);
+            //队列名字
+            sendLog.setRouteKey(MessageSendConfig.ADD_FRIEND_SEND_QUEUE_NAME);
+            //交换机名字
+            sendLog.setExchange(MessageSendConfig.ADD_FRIEND_SEND_EXCHANGE_NAME);
+            //表示消息正在发送
+            sendLog.setStatus(0);
+            //表示没重试
+            sendLog.setTryCount(0);
+            sendLog.setTryTime(new Date(System.currentTimeMillis() + 60 * 1000));
+            messageSendLogService.save(sendLog);
+
+            //发送添加好友的消息给MQ
+            //发送的消息需要带上CorrelationData，为了识别是哪一条消息
+            //要能够发送成功，对象必须序列化
+            rabbitTemplate.convertAndSend(MessageSendConfig.ADD_FRIEND_SEND_EXCHANGE_NAME,
+                    MessageSendConfig.ADD_FRIEND_SEND_QUEUE_NAME, addFriendRequest, new CorrelationData(msgId));
+            return true;
+        }
+
+        return false;
     }
 
     @Override
     public Boolean increaseFriend(AddFriendRequest addFriendRequest) {
-        if (addFriendRequest == null){
+        if (addFriendRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
         Long recipientId = addFriendRequest.getRecipientId();
@@ -485,8 +509,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         notice.setSenderId(senderId);
         notice.setRecipientId(recipientId);
         boolean save = noticeService.save(notice);
-        if (!save){
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR,"好友申请失败");
+        if (!save) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "好友申请失败");
         }
         return true;
     }
@@ -494,14 +518,14 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Override
     public List<User> getAddFriendNotice(Long id) {
         QueryWrapper<Notice> qw = new QueryWrapper<>();
-        qw.lambda().eq(Notice::getRecipientId,id);
+        qw.lambda().eq(Notice::getRecipientId, id);
         List<Notice> list = noticeService.list(qw);
         ArrayList<Long> applyUserId = new ArrayList<>();
         for (Notice notice : list) {
             applyUserId.add(notice.getSenderId());
         }
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
-        queryWrapper.lambda().in(User::getId,applyUserId);
+        queryWrapper.lambda().in(User::getId, applyUserId);
         List<User> applyUserList = this.list(queryWrapper);
         return applyUserList;
     }

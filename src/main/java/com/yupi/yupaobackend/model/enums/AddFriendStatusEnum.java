@@ -4,9 +4,10 @@ package com.yupi.yupaobackend.model.enums;
  * 添加好友状态枚举类
  */
 public enum AddFriendStatusEnum {
-    PUBLIC(0, "公共"),
-    PRIVATE(1, "私有"),
-    SECRET(2, "加密");
+
+    ADDING(0, "添加中"),
+    ADD_SUCCESS(1, "添加成功"),
+    ADD_ERROR(2, "添加失败");
 
     private int value;
 

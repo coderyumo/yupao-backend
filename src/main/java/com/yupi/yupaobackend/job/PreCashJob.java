@@ -27,13 +27,13 @@ import static com.yupi.yupaobackend.constant.RedisConstant.USER_SEARCH_KEY;
 public class PreCashJob {
 
     @Resource
-    RedisTemplate redisTemplate;
+    private   RedisTemplate redisTemplate;
 
     @Resource
-    UserService userService;
+    private   UserService userService;
 
     @Resource
-    RedissonClient redissonClient;
+    private  RedissonClient redissonClient;
 
 //    List<Long> mainUserList = Collections.singletonList(3L);
 

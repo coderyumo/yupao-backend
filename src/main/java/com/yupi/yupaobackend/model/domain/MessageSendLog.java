@@ -11,11 +11,11 @@ import java.util.Date;
 
 /**
  * 
- * @TableName massage_send_log
+ * @TableName message_send_log
  */
-@TableName(value ="massage_send_log")
+@TableName(value ="message_send_log")
 @Data
-public class MassageSendLog implements Serializable {
+public class MessageSendLog implements Serializable {
     /**
      * 消息id（uuid）
      */
@@ -31,6 +31,11 @@ public class MassageSendLog implements Serializable {
      * 接收人id
      */
     private Long recipientId;
+
+    /**
+     * 添加好友状态
+     */
+    private Integer addFriendStatus;
 
     /**
      * 邀请人id

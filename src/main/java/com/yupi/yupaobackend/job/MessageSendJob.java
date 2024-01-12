@@ -1,9 +1,10 @@
 package com.yupi.yupaobackend.job;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.yupi.yupaobackend.model.domain.MassageSendLog;
+import com.yupi.yupaobackend.model.domain.MessageSendLog;
+import com.yupi.yupaobackend.model.enums.AddFriendStatusEnum;
 import com.yupi.yupaobackend.model.request.AddFriendRequest;
-import com.yupi.yupaobackend.service.MassageSendLogService;
+import com.yupi.yupaobackend.service.MessageSendLogService;
 import com.yupi.yupaobackend.service.impl.UserServiceImpl;
 import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -23,29 +24,30 @@ public class MessageSendJob {
 
 
     @Resource
-    private MassageSendLogService sendLogService;
+    private MessageSendLogService sendLogService;
 
     @Resource
-    RabbitTemplate rabbitTemplate;
+    private  RabbitTemplate rabbitTemplate;
 
     @Resource
-    UserServiceImpl userService;
+    private  UserServiceImpl userService;
 
     /**
      * 每隔十秒执行一次
      */
 //    @Scheduled(cron = "0/10 * * * * ?")
     public void messageSend() {
-        QueryWrapper<MassageSendLog> qw = new QueryWrapper<>();
+        QueryWrapper<MessageSendLog> qw = new QueryWrapper<>();
         qw.lambda()
-                .eq(MassageSendLog::getStatus, 0)
-                .le(MassageSendLog::getTryTime, new Date());
-        List<MassageSendLog> list = sendLogService.list(qw);
-        for (MassageSendLog sendLog : list) {
+                .eq(MessageSendLog::getStatus, 0)
+                .le(MessageSendLog::getTryTime, new Date());
+        List<MessageSendLog> list = sendLogService.list(qw);
+        for (MessageSendLog sendLog : list) {
             sendLog.setUpdateTime(new Date());
             if (sendLog.getTryCount() > 2) {
                 //说明已经重试了三次了，此时直接设置消息发送失败
                 sendLog.setStatus(2);
+                sendLog.setAddFriendStatus(AddFriendStatusEnum.ADD_ERROR.getValue());
                 sendLogService.updateById(sendLog);
             }else {
                 //还未达到上限，重试

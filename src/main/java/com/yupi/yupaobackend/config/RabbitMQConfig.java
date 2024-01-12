@@ -1,7 +1,8 @@
 package com.yupi.yupaobackend.config;
 
-import com.yupi.yupaobackend.model.domain.MassageSendLog;
-import com.yupi.yupaobackend.service.MassageSendLogService;
+import com.yupi.yupaobackend.model.domain.MessageSendLog;
+import com.yupi.yupaobackend.model.enums.AddFriendStatusEnum;
+import com.yupi.yupaobackend.service.MessageSendLogService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.ReturnedMessage;
 import org.springframework.amqp.rabbit.connection.CorrelationData;
@@ -23,11 +24,11 @@ public class RabbitMQConfig implements RabbitTemplate.ConfirmCallback, RabbitTem
 
 
     @Resource
-    RabbitTemplate rabbitTemplate;
+    private RabbitTemplate rabbitTemplate;
 
 
     @Resource
-    MassageSendLogService sendLogService;
+    private  MessageSendLogService sendLogService;
 
     @PostConstruct
     public void init() {
@@ -40,10 +41,11 @@ public class RabbitMQConfig implements RabbitTemplate.ConfirmCallback, RabbitTem
         String msgId = correlationData.getId();
         if (ack) {
             //说明消息到达交换机
-            MassageSendLog sendLog = new MassageSendLog();
+            MessageSendLog sendLog = new MessageSendLog();
             sendLog.setMsgId(msgId);
             sendLog.setStatus(1);
             sendLog.setUpdateTime(new Date());
+            sendLog.setAddFriendStatus(AddFriendStatusEnum.ADDING.getValue());
             //更新数据库
             sendLogService.updateById(sendLog);
             log.info("消息成功到达交换机：{}", msgId);

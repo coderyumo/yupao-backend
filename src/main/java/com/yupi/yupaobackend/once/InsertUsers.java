@@ -15,7 +15,7 @@ public class InsertUsers {
 
 
     @Resource
-    UserService userService;
+    private UserService userService;
 
     private final ExecutorService executorService = new ThreadPoolExecutor(100,1000,1000, TimeUnit.MINUTES,new ArrayBlockingQueue<>(10000));
 

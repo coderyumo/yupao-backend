@@ -4,6 +4,7 @@ import com.rabbitmq.client.Channel;
 import com.yupi.yupaobackend.config.MessageSendConfig;
 import com.yupi.yupaobackend.model.domain.Notice;
 import com.yupi.yupaobackend.model.request.AddFriendRequest;
+import com.yupi.yupaobackend.server.WebSocketServer;
 import com.yupi.yupaobackend.service.NoticeService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -28,10 +29,13 @@ import static com.yupi.yupaobackend.constant.RedisConstant.ADD_FRIEND_KEY;
 public class MessageConsumer {
 
     @Resource
-    NoticeService noticeService;
+    private NoticeService noticeService;
 
     @Resource
-    RedisTemplate redisTemplate;
+    private WebSocketServer webSocketServer;
+
+    @Resource
+    private RedisTemplate redisTemplate;
 
 
     @RabbitListener(queues = MessageSendConfig.ADD_FRIEND_SEND_QUEUE_NAME)
@@ -49,6 +53,11 @@ public class MessageConsumer {
                 //直接丢掉消息
                 channel.basicNack(deliverTag, false, false);
             } else {
+                //发送添加好友消息
+                webSocketServer.sendToAllClient("");
+
+
+
                 //往消息表添加消息 todo 查询消息表
                 log.info("往消息表添加消息：{}", addFriendRequest);
                 Notice notice = new Notice();

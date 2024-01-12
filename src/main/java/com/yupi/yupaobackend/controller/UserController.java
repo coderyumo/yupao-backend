@@ -20,13 +20,14 @@ import org.springframework.web.bind.annotation.*;
 import javax.annotation.Resource;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import static com.yupi.yupaobackend.constant.RedisConstant.TOKEN_KEY;
 import static com.yupi.yupaobackend.constant.RedisConstant.USER_SEARCH_KEY;
 
 @RestController
 @RequestMapping("/user")
-@CrossOrigin(origins = {"http://user.code-li.fun","http://yupao.code-li.fun"})
+@CrossOrigin(origins = {"http://user.code-li.fun", "http://yupao.code-li.fun", "http://4c8b5c0b.r3.cpolar.top/"})
 @Slf4j
 public class UserController {
 
@@ -34,7 +35,7 @@ public class UserController {
     private UserService userService;
 
     @Resource
-    RedisTemplate redisTemplate;
+    private RedisTemplate redisTemplate;
 
     /**
      * 用户注册
@@ -58,10 +59,10 @@ public class UserController {
         String username = userRegisterRequest.getUsername();
         String phone = userRegisterRequest.getPhone();
         String email = userRegisterRequest.getEmail();
-        if (StringUtils.isAnyBlank(userAccount, userPassword, checkPassword, planetCode,activeIds,avatarUrl,username,
-                phone,email
-                )) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR,"参数错误");
+        if (StringUtils.isAnyBlank(userAccount, userPassword, checkPassword, planetCode, activeIds, avatarUrl, username,
+                phone, email
+        )) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "参数错误");
         }
         long result = userService.userRegister(userRegisterRequest);
         return ResultUtils.success(result);
@@ -151,9 +152,13 @@ public class UserController {
         //没有直接查询数据库
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
         userPage = userService.page(new Page<>(pageNum, pageSize), queryWrapper);
+        List<User> userList =
+            userPage.getRecords().stream().filter(user -> user.getId() != loginUser.getId()).collect(Collectors.toList());
+        List<User> list = userList.stream().map(user -> userService.getSafetyUser(user)).collect(Collectors.toList());
+        userPage.setRecords(list);
         //写缓存
         try {
-            redisTemplate.opsForValue().set(key,userPage,5, TimeUnit.HOURS);
+            redisTemplate.opsForValue().set(key, userPage, 5, TimeUnit.HOURS);
         } catch (Exception e) {
             log.error("redis set key error");
         }
@@ -199,9 +204,9 @@ public class UserController {
      * @return
      */
     @GetMapping("/match")
-    public BaseResponse<List<User>> matchUser(CurrentUserRequest currentUserRequest){
+    public BaseResponse<List<User>> matchUser(CurrentUserRequest currentUserRequest) {
         int num = currentUserRequest.getNum();
-        if (num <= 0 || num >20){
+        if (num <= 0 || num > 20) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
         User loginUser = userService.getLoginUser(currentUserRequest.getUserAccount(), currentUserRequest.getUuid());
@@ -211,22 +216,29 @@ public class UserController {
     }
 
     @PostMapping("/friend/add")
-    public BaseResponse<Boolean> addFriend( @RequestBody AddFriendRequest addFriendRequest){
-
-        if (addFriendRequest == null){
+    public BaseResponse<Boolean> addFriend(@RequestBody AddFriendRequest addFriendRequest) {
+        if (addFriendRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-       Boolean result =  userService.addFriend(addFriendRequest);
+
+        String key = TOKEN_KEY + addFriendRequest.getUuid();
+        System.out.println("key = " + key);
+        User user = (User) redisTemplate.opsForHash().get(key, addFriendRequest.getUserAccount());
+        if (user == null) {
+            throw new BusinessException(ErrorCode.NOT_LOGIN);
+        }
+
+        Boolean result = userService.addFriend(addFriendRequest);
         return ResultUtils.success(result);
     }
 
     @PostMapping("/friend/increase")
-    public BaseResponse<Boolean> increaseFriend(@RequestBody AddFriendRequest addFriendRequest){
+    public BaseResponse<Boolean> increaseFriend(@RequestBody AddFriendRequest addFriendRequest) {
 
-        if (addFriendRequest == null){
+        if (addFriendRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-       Boolean result =  userService.increaseFriend(addFriendRequest);
+        Boolean result = userService.increaseFriend(addFriendRequest);
         return ResultUtils.success(result);
     }
 }

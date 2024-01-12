@@ -11,15 +11,15 @@ import java.io.Serializable;
  **/
 @Data
 public class AddFriendRequest implements Serializable {
+
     private static final long serialVersionUID = -3875902490135062967L;
+
     private Long senderId;
+
     private Long recipientId;
 
-    @Override
-    public String toString() {
-        return "AddFriendRequest{" +
-                "senderId=" + senderId +
-                ", recipientId=" + recipientId +
-                '}';
-    }
+    private String userAccount;
+
+    private String uuid;
+
 }

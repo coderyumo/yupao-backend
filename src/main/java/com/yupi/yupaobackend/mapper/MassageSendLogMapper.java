@@ -1,6 +1,6 @@
 package com.yupi.yupaobackend.mapper;
 
-import com.yupi.yupaobackend.model.domain.MassageSendLog;
+import com.yupi.yupaobackend.model.domain.MessageSendLog;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 
 /**
@@ -9,7 +9,7 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 * @createDate 2024-01-03 13:04:37
 * @Entity com.yupi.yupaobackend.model.domain.MassageSendLog
 */
-public interface MassageSendLogMapper extends BaseMapper<MassageSendLog> {
+public interface MassageSendLogMapper extends BaseMapper<MessageSendLog> {
 
 }
 

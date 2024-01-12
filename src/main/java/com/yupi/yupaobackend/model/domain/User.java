@@ -21,6 +21,13 @@ public class User implements Serializable {
     @TableId(type = IdType.AUTO)
     private Long id;
 
+
+    /**
+     * 好友列表Id JSON
+     */
+    private String friendId;
+
+
     /**
      * 用户昵称
      */
@@ -100,11 +107,6 @@ public class User implements Serializable {
      * 标签列表JSON
      */
     private String tags;
-
-    /**
-     * 好友列表Id JSON
-     */
-    private String friendId;
 
     // https://github.com/liyupi
 

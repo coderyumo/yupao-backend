@@ -41,13 +41,13 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         implements TeamService {
 
     @Resource
-    UserService userService;
+    private  UserService userService;
 
     @Resource
-    UserTeamService userTeamService;
+    private  UserTeamService userTeamService;
 
     @Resource
-    RedissonClient redissonClient;
+    private   RedissonClient redissonClient;
 
     @Override
     @Transactional(rollbackFor = Exception.class)

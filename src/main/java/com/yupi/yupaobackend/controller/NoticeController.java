@@ -1,11 +1,9 @@
 package com.yupi.yupaobackend.controller;
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.yupi.yupaobackend.common.BaseResponse;
 import com.yupi.yupaobackend.common.ErrorCode;
 import com.yupi.yupaobackend.common.ResultUtils;
 import com.yupi.yupaobackend.exception.BusinessException;
-import com.yupi.yupaobackend.model.domain.Notice;
 import com.yupi.yupaobackend.model.domain.User;
 import com.yupi.yupaobackend.service.NoticeService;
 import com.yupi.yupaobackend.service.UserService;
@@ -16,7 +14,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.annotation.Resource;
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -26,16 +23,16 @@ import java.util.List;
  **/
 @RestController
 @RequestMapping("/notice")
-@CrossOrigin(origins = {"http://user.code-li.fun","http://yupao.code-li.fun"})
+@CrossOrigin(origins = {"http://user.code-li.fun","http://yupao.code-li.fun","http://4c8b5c0b.r3.cpolar.top/"})
 @Slf4j
 public class NoticeController {
 
 
     @Resource
-    UserService userService;
+    private  UserService userService;
 
     @Resource
-    NoticeService noticeService;
+    private  NoticeService noticeService;
 
     @GetMapping("/list")
     public BaseResponse<List<User>> getNotice(Long id){
