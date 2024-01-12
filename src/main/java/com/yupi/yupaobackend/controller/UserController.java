@@ -1,6 +1,7 @@
 package com.yupi.yupaobackend.controller;
 
 
+import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.CollectionUtils;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -11,6 +12,8 @@ import com.yupi.yupaobackend.exception.BusinessException;
 import com.yupi.yupaobackend.model.domain.User;
 import com.yupi.yupaobackend.model.dto.UserDTO;
 import com.yupi.yupaobackend.model.request.*;
+import com.yupi.yupaobackend.model.vo.WebSocketRespVO;
+import com.yupi.yupaobackend.server.WebSocketServer;
 import com.yupi.yupaobackend.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -36,6 +39,9 @@ public class UserController {
 
     @Resource
     private RedisTemplate redisTemplate;
+
+    @Resource
+    private WebSocketServer webSocketServer;
 
     /**
      * 用户注册
@@ -153,7 +159,7 @@ public class UserController {
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
         userPage = userService.page(new Page<>(pageNum, pageSize), queryWrapper);
         List<User> userList =
-            userPage.getRecords().stream().filter(user -> user.getId() != loginUser.getId()).collect(Collectors.toList());
+                userPage.getRecords().stream().filter(user -> user.getId() != loginUser.getId()).collect(Collectors.toList());
         List<User> list = userList.stream().map(user -> userService.getSafetyUser(user)).collect(Collectors.toList());
         userPage.setRecords(list);
         //写缓存
@@ -234,8 +240,12 @@ public class UserController {
 
     @PostMapping("/friend/agree")
     public BaseResponse<Boolean> agreeFriend(@RequestBody AddFriendRequest addFriendRequest) {
-
-
+        WebSocketRespVO webSocketRespVO = new WebSocketRespVO();
+        boolean agree = userService.agreeFriend(addFriendRequest);
+        User user = userService.getById(addFriendRequest.getRecipientId());
+        webSocketRespVO.setMessage("添加" + user.getUsername() + "的好友申请已通过");
+        webSocketRespVO.setSenderId(addFriendRequest.getSenderId());
+        webSocketServer.sendToAllClient(JSONUtil.toJsonStr(webSocketRespVO));
         return ResultUtils.success(true);
     }
 }

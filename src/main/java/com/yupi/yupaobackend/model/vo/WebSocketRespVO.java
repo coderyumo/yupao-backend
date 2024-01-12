@@ -19,5 +19,4 @@ public class WebSocketRespVO implements Serializable {
 
     private Long senderId;
 
-    private Long recipientId;
 }

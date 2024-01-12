@@ -1,5 +1,6 @@
 package com.yupi.yupaobackend.service.impl;
 
+import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
@@ -31,6 +32,7 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.DigestUtils;
 
 import javax.annotation.Resource;
@@ -514,24 +516,59 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         return applyUserList;
     }
 
-
     /**
-     * 判断是否已经是好友
+     * 校验是否是好友
      *
      * @param user
      * @param friendId
      */
     private void checkIfAlreadyFriends(User user, Long friendId) {
-        if (user.getFriendId() != null) {
-            String friendIdStr = user.getFriendId();
-            JSONArray jsonArray = JSONUtil.parseArray(friendIdStr);
-            for (Object id : jsonArray) {
-                if (id.equals(friendId)) {
-                    throw new BusinessException(ErrorCode.PARAMS_ERROR, "对方已经是您的好友，请勿重新添加!");
-                }
+        String userFriendId = user.getFriendId();
+        if (StrUtil.isNotBlank(userFriendId)) {
+            JSONArray jsonArray = JSONUtil.parseArray(userFriendId);
+            if (jsonArray.contains(friendId)) {
+                throw new BusinessException(ErrorCode.PARAMS_ERROR, "对方已经是您的好友，请勿重新添加!");
             }
         }
     }
 
+
+    private void updateFriendList(User user, Long friendId) {
+        JSONArray friendIdJsonArray = StrUtil.isBlank(user.getFriendId()) ? new JSONArray() : JSONUtil.parseArray(user.getFriendId());
+        friendIdJsonArray.add(friendId);
+        user.setFriendId(JSONUtil.toJsonStr(friendIdJsonArray));
+        boolean updateResult = this.updateById(user);
+        if (!updateResult) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "更新好友列表失败");
+        }
+    }
+
+    @Override
+    @Transactional
+    public Boolean agreeFriend(AddFriendRequest addFriendRequest) {
+        Long senderId = addFriendRequest.getSenderId();
+        Long recipientId = addFriendRequest.getRecipientId();
+        User sender = this.getById(senderId);
+        User recipient = this.getById(recipientId);
+        // 再次校验是否已经是好友
+        checkIfAlreadyFriends(sender, recipientId);
+        checkIfAlreadyFriends(recipient, senderId);
+
+        // 修改消息通知表
+        QueryWrapper<Notice> queryWrapper = new QueryWrapper<>();
+        queryWrapper.lambda().eq(Notice::getSenderId, senderId).eq(Notice::getRecipientId, recipientId).eq(Notice::getAddFriendStatus, AddFriendStatusEnum.ADDING.getValue());
+        Notice notice = noticeService.getOne(queryWrapper);
+        notice.setAddFriendStatus(AddFriendStatusEnum.ADD_SUCCESS.getValue());
+        boolean updateNotice = noticeService.updateById(notice);
+        if (!updateNotice) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "修改通知表失败");
+        }
+
+        // 在发送人好友列表添加上对方的id
+        updateFriendList(sender, recipientId);
+        // 在接收人好友列表添加上对方的id
+        updateFriendList(recipient, senderId);
+        return true;
+    }
 
 }

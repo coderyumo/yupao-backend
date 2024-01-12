@@ -127,4 +127,6 @@ public interface UserService extends IService<User> {
      */
     List<User> getAddFriendNotice(Long id);
 
+    Boolean agreeFriend(AddFriendRequest addFriendRequest);
+
 }
