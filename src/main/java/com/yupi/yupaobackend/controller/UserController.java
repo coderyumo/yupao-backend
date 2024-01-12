@@ -226,15 +226,23 @@ public class UserController {
         if (addFriendRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-
         String key = TOKEN_KEY + addFriendRequest.getUuid();
         System.out.println("key = " + key);
         User user = (User) redisTemplate.opsForHash().get(key, addFriendRequest.getUserAccount());
         if (user == null) {
             throw new BusinessException(ErrorCode.NOT_LOGIN);
         }
-
         Boolean result = userService.addFriend(addFriendRequest);
+        return ResultUtils.success(result);
+    }
+
+    @PostMapping("/friend/delete")
+    public BaseResponse<Boolean> deleteFriend(@RequestBody DeleteFriendRequest deleteFriendRequest) {
+        if (deleteFriendRequest == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+
+        Boolean result = userService.deleteFriend(deleteFriendRequest);
         return ResultUtils.success(result);
     }
 
@@ -244,8 +252,38 @@ public class UserController {
         boolean agree = userService.agreeFriend(addFriendRequest);
         User user = userService.getById(addFriendRequest.getRecipientId());
         webSocketRespVO.setMessage("添加" + user.getUsername() + "的好友申请已通过");
+        webSocketRespVO.setIsAgree(true);
         webSocketRespVO.setSenderId(addFriendRequest.getSenderId());
         webSocketServer.sendToAllClient(JSONUtil.toJsonStr(webSocketRespVO));
         return ResultUtils.success(true);
     }
+
+    @PostMapping("/friend/reject")
+    public BaseResponse<Boolean> rejectFriend(@RequestBody AddFriendRequest addFriendRequest) {
+        WebSocketRespVO webSocketRespVO = new WebSocketRespVO();
+        boolean agree = userService.rejectFriend(addFriendRequest);
+        User user = userService.getById(addFriendRequest.getRecipientId());
+        webSocketRespVO.setMessage("添加" + user.getUsername() + "的好友申请被拒绝");
+        webSocketRespVO.setIsAgree(false);
+        webSocketRespVO.setSenderId(addFriendRequest.getSenderId());
+        webSocketServer.sendToAllClient(JSONUtil.toJsonStr(webSocketRespVO));
+        return ResultUtils.success(true);
+    }
+
+    @GetMapping("/friend/list")
+    public BaseResponse<List<User>> listFriend(CurrentUserRequest currentUserRequest) {
+        if (currentUserRequest == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        User loginUser = userService.getLoginUser(currentUserRequest.getUserAccount(), currentUserRequest.getUuid());
+        List<User> friendList = userService.listFriend(loginUser);
+        return ResultUtils.success(friendList);
+    }
+
+    @PostMapping("/refresh/cache")
+    public BaseResponse<Boolean> refreshCache(@RequestBody CurrentUserRequest currentUserRequest) {
+        boolean refresh = userService.refreshCache(currentUserRequest);
+        return ResultUtils.success(refresh);
+    }
+
 }

@@ -17,9 +17,7 @@ import com.yupi.yupaobackend.model.domain.Notice;
 import com.yupi.yupaobackend.model.domain.User;
 import com.yupi.yupaobackend.model.dto.UserDTO;
 import com.yupi.yupaobackend.model.enums.AddFriendStatusEnum;
-import com.yupi.yupaobackend.model.request.AddFriendRequest;
-import com.yupi.yupaobackend.model.request.SearchUserByTagsRequest;
-import com.yupi.yupaobackend.model.request.UserRegisterRequest;
+import com.yupi.yupaobackend.model.request.*;
 import com.yupi.yupaobackend.service.NoticeService;
 import com.yupi.yupaobackend.service.UserService;
 import com.yupi.yupaobackend.utils.AlgorithmUtils;
@@ -37,6 +35,7 @@ import org.springframework.util.DigestUtils;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.io.Serializable;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
@@ -199,7 +198,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         String token = userAccount + "-" + newUuid; // 1. 校验
         // 4. 存储用户信息到Redis中,设置key过期时间和token过期时间
         redisTemplate.opsForHash().put(TOKEN_KEY + newUuid, safetyUser.getUserAccount(), safetyUser);
-        redisTemplate.expire(TOKEN_KEY + newUuid, 24, TimeUnit.HOURS);
+        redisTemplate.expire(TOKEN_KEY + newUuid, 30, TimeUnit.MINUTES);
         //    request.getSession().setAttribute(USER_LOGIN_STATE, safetyUser);
         return token;
     }
@@ -234,6 +233,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         }
         User safetyUser = new User();
         safetyUser.setId(originUser.getId());
+        safetyUser.setFriendId(originUser.getFriendId());
         safetyUser.setUsername(originUser.getUsername());
         safetyUser.setUserAccount(originUser.getUserAccount());
         safetyUser.setAvatarUrl(originUser.getAvatarUrl());
@@ -442,6 +442,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         }
         RLock lock = redissonClient.getLock(ADD_FRIEND_KEY);
         try {
+
             //只有一个线程会获取锁
             //判断发送人id和接收人id是否存在
             User sender = this.getById(addFriendRequest.getSenderId());
@@ -449,6 +450,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             if (sender != null && recipient != null) {
                 Long recipientId = addFriendRequest.getRecipientId();
                 Long senderId = addFriendRequest.getSenderId();
+                //校验是否已经是好友
+                Boolean alreadyFriends = checkIfAlreadyFriends(sender, recipientId);
+                Boolean alreadyFriends1 = checkIfAlreadyFriends(recipient, senderId);
+                if (alreadyFriends && alreadyFriends1) {
+                    throw new BusinessException(ErrorCode.PARAMS_ERROR, "对方已经是您的好友，请勿重新发送");
+                }
+
                 //判断是否已经发送好友申请，如果状态为添加失败则可以继续添加
                 QueryWrapper<Notice> queryWrapper = new QueryWrapper<>();
                 queryWrapper.lambda().eq(Notice::getSenderId, senderId).eq(Notice::getRecipientId,
@@ -522,18 +530,23 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
      * @param user
      * @param friendId
      */
-    private void checkIfAlreadyFriends(User user, Long friendId) {
+    private Boolean checkIfAlreadyFriends(User user, Long friendId) {
         String userFriendId = user.getFriendId();
         if (StrUtil.isNotBlank(userFriendId)) {
             JSONArray jsonArray = JSONUtil.parseArray(userFriendId);
-            if (jsonArray.contains(friendId)) {
-                throw new BusinessException(ErrorCode.PARAMS_ERROR, "对方已经是您的好友，请勿重新添加!");
-            }
+            // 将friendId转为Integer类型进行比较
+            return jsonArray.contains(Math.toIntExact(friendId));
         }
+        return false;
     }
 
-
-    private void updateFriendList(User user, Long friendId) {
+    /**
+     * 添加好友到好友列表
+     *
+     * @param user
+     * @param friendId
+     */
+    private void addFriendList(User user, Long friendId) {
         JSONArray friendIdJsonArray = StrUtil.isBlank(user.getFriendId()) ? new JSONArray() : JSONUtil.parseArray(user.getFriendId());
         friendIdJsonArray.add(friendId);
         user.setFriendId(JSONUtil.toJsonStr(friendIdJsonArray));
@@ -543,16 +556,53 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         }
     }
 
+    /**
+     * 删除好友
+     *
+     * @param user
+     * @param friendId
+     */
+    private void removeFriendFromList(User user, Long friendId) {
+        if (StrUtil.isNotBlank(user.getFriendId())) {
+            JSONArray friendIdJsonArray = JSONUtil.parseArray(user.getFriendId());
+            JSONArray newFriendIdJsonArray = new JSONArray();
+            for (Object id : friendIdJsonArray) {
+                if (!id.equals(Math.toIntExact(friendId))) {
+                    newFriendIdJsonArray.add(id);
+                }
+            }
+            user.setFriendId(JSONUtil.toJsonStr(newFriendIdJsonArray));
+            boolean updateResult = this.updateById(user);
+            if (!updateResult) {
+                throw new BusinessException(ErrorCode.SYSTEM_ERROR, "删除好友ID失败");
+            }
+        }
+    }
+
+
     @Override
     @Transactional
     public Boolean agreeFriend(AddFriendRequest addFriendRequest) {
         Long senderId = addFriendRequest.getSenderId();
         Long recipientId = addFriendRequest.getRecipientId();
+        String userAccount = addFriendRequest.getUserAccount();
+        String uuid = addFriendRequest.getUuid();
         User sender = this.getById(senderId);
         User recipient = this.getById(recipientId);
+        User cashUser = (User) redisTemplate.opsForHash().get(TOKEN_KEY + uuid, userAccount);
+        try {
+            redisTemplate.opsForHash().delete(TOKEN_KEY + uuid, userAccount);
+        } catch (Exception e) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "删除缓存失败");
+        }
+
         // 再次校验是否已经是好友
-        checkIfAlreadyFriends(sender, recipientId);
-        checkIfAlreadyFriends(recipient, senderId);
+        Boolean alreadyFriends = checkIfAlreadyFriends(sender, recipientId);
+        Boolean alreadyFriends1 = checkIfAlreadyFriends(recipient, senderId);
+
+        if (alreadyFriends && alreadyFriends1) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "对方已经是您的好友，请勿重新发送");
+        }
 
         // 修改消息通知表
         QueryWrapper<Notice> queryWrapper = new QueryWrapper<>();
@@ -565,10 +615,108 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         }
 
         // 在发送人好友列表添加上对方的id
-        updateFriendList(sender, recipientId);
+        addFriendList(sender, recipientId);
         // 在接收人好友列表添加上对方的id
-        updateFriendList(recipient, senderId);
+        addFriendList(recipient, senderId);
+
+        User user = getById(cashUser.getId());
+        User safetyUser = this.getSafetyUser(user);
+        redisTemplate.opsForHash().put(TOKEN_KEY + uuid, userAccount, safetyUser);
+        redisTemplate.expire(TOKEN_KEY + uuid, 30, TimeUnit.MINUTES);
         return true;
     }
 
+
+    @Override
+    public Boolean rejectFriend(AddFriendRequest addFriendRequest) {
+        Long senderId = addFriendRequest.getSenderId();
+        Long recipientId = addFriendRequest.getRecipientId();
+
+        // 修改消息通知表
+        QueryWrapper<Notice> queryWrapper = new QueryWrapper<>();
+        queryWrapper.lambda().eq(Notice::getSenderId, senderId).eq(Notice::getRecipientId, recipientId).eq(Notice::getAddFriendStatus, AddFriendStatusEnum.ADDING.getValue());
+        Notice notice = noticeService.getOne(queryWrapper);
+        notice.setAddFriendStatus(AddFriendStatusEnum.ADD_ERROR.getValue());
+        boolean updateNotice = noticeService.updateById(notice);
+        if (!updateNotice) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "修改通知表失败");
+        }
+        return true;
+    }
+
+    @Override
+    public List<User> listFriend(User loginUser) {
+        String friendId = loginUser.getFriendId();
+        ArrayList<User> userArrayList = new ArrayList<>();
+        if (StrUtil.isBlank(friendId)) {
+            return userArrayList;
+        }
+
+        JSONArray jsonArray = JSONUtil.parseArray(friendId);
+        for (Object id : jsonArray) {
+            userArrayList.add(this.getById((Serializable) id));
+        }
+
+        return userArrayList;
+    }
+
+    @Override
+    public Boolean deleteFriend(DeleteFriendRequest deleteFriendRequest) {
+        Long senderId = deleteFriendRequest.getId();
+        Long recipientId = deleteFriendRequest.getDeleteId();
+        String userAccount = deleteFriendRequest.getUserAccount();
+        String uuid = deleteFriendRequest.getUuid();
+        User sender = this.getById(senderId);
+        User recipient = this.getById(recipientId);
+        User cashUser = (User) redisTemplate.opsForHash().get(TOKEN_KEY + uuid, userAccount);
+        // 先删除缓存
+        try {
+            redisTemplate.opsForHash().delete(TOKEN_KEY + uuid, userAccount);
+        } catch (Exception e) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "删除缓存失败");
+        }
+        Boolean alreadyFriends1 = checkIfAlreadyFriends(sender, recipientId);
+        Boolean alreadyFriends2 = checkIfAlreadyFriends(recipient, senderId);
+        if (!alreadyFriends2 && !alreadyFriends1) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "对方已经不是您的好友，请刷新");
+        }
+        //删除好友，修改消息通知表的好友状态为添加失败
+        QueryWrapper<Notice> queryWrapper = new QueryWrapper<>();
+        queryWrapper.lambda().eq(Notice::getRecipientId, senderId).eq(Notice::getSenderId, recipientId).eq(Notice::getAddFriendStatus, AddFriendStatusEnum.ADD_SUCCESS.getValue());
+        Notice notice = noticeService.getOne(queryWrapper);
+        notice.setAddFriendStatus(AddFriendStatusEnum.ADD_ERROR.getValue());
+        noticeService.updateById(notice);
+
+        //双方好友列表id都删除对方
+        removeFriendFromList(sender, recipientId);
+        removeFriendFromList(recipient, senderId);
+
+        User user = getById(cashUser.getId());
+        User safetyUser = this.getSafetyUser(user);
+
+        redisTemplate.opsForHash().put(TOKEN_KEY + uuid, userAccount, safetyUser);
+        redisTemplate.expire(TOKEN_KEY + uuid, 30, TimeUnit.MINUTES);
+
+        return true;
+    }
+
+
+    @Override
+    public Boolean refreshCache(CurrentUserRequest currentUserRequest) {
+        String userAccount = currentUserRequest.getUserAccount();
+        String uuid = currentUserRequest.getUuid();
+        User cashUser = (User) redisTemplate.opsForHash().get(TOKEN_KEY + uuid, userAccount);
+        // 先删除缓存
+        try {
+            redisTemplate.opsForHash().delete(TOKEN_KEY + uuid, userAccount);
+        } catch (Exception e) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "删除缓存失败");
+        }
+        User user = getById(cashUser.getId());
+        User safetyUser = this.getSafetyUser(user);
+
+        redisTemplate.opsForHash().put(TOKEN_KEY + uuid, userAccount, safetyUser);
+        redisTemplate.expire(TOKEN_KEY + uuid, 30, TimeUnit.MINUTES);
+        return true;
+    }
 }

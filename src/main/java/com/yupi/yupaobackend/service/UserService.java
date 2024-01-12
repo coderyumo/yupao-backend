@@ -5,9 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.yupi.yupaobackend.model.domain.User;
 import com.yupi.yupaobackend.model.dto.UserDTO;
-import com.yupi.yupaobackend.model.request.AddFriendRequest;
-import com.yupi.yupaobackend.model.request.SearchUserByTagsRequest;
-import com.yupi.yupaobackend.model.request.UserRegisterRequest;
+import com.yupi.yupaobackend.model.request.*;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
@@ -127,6 +125,39 @@ public interface UserService extends IService<User> {
      */
     List<User> getAddFriendNotice(Long id);
 
+    /**
+     * 通过好友申请
+     * @param addFriendRequest
+     * @return
+     */
     Boolean agreeFriend(AddFriendRequest addFriendRequest);
+
+    /**
+     * 拒绝好友申请
+     * @param addFriendRequest
+     * @return
+     */
+    Boolean rejectFriend(AddFriendRequest addFriendRequest);
+
+    /**
+     * 好友列表
+     * @param loginUser
+     * @return
+     */
+    List<User> listFriend(User loginUser);
+
+    /**
+     * 删除好友
+     * @param deleteFriendRequest
+     * @return
+     */
+    Boolean deleteFriend(DeleteFriendRequest deleteFriendRequest);
+
+    /**
+     * 同意好友后更新缓存
+     * @param currentUserRequest
+     * @return
+     */
+    Boolean refreshCache(CurrentUserRequest currentUserRequest);
 
 }
