@@ -178,7 +178,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 从Redis中查询用户是否存在
         User cashUser = (User) redisTemplate.opsForHash().get(TOKEN_KEY + uuid, userAccount);
         if (cashUser != null) {
-            redisTemplate.expire(TOKEN_KEY + uuid, 30, TimeUnit.MINUTES);
+            redisTemplate.expire(TOKEN_KEY + uuid, 30, TimeUnit.SECONDS);
             return currentToken;
         }
         // 查询用户是否存在
@@ -198,7 +198,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         String token = userAccount + "-" + newUuid; // 1. 校验
         // 4. 存储用户信息到Redis中,设置key过期时间和token过期时间
         redisTemplate.opsForHash().put(TOKEN_KEY + newUuid, safetyUser.getUserAccount(), safetyUser);
-        redisTemplate.expire(TOKEN_KEY + newUuid, 30, TimeUnit.MINUTES);
+        redisTemplate.expire(TOKEN_KEY + newUuid, 30, TimeUnit.SECONDS);
         //    request.getSession().setAttribute(USER_LOGIN_STATE, safetyUser);
         return token;
     }
@@ -585,16 +585,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     public Boolean agreeFriend(AddFriendRequest addFriendRequest) {
         Long senderId = addFriendRequest.getSenderId();
         Long recipientId = addFriendRequest.getRecipientId();
-        String userAccount = addFriendRequest.getUserAccount();
-        String uuid = addFriendRequest.getUuid();
         User sender = this.getById(senderId);
         User recipient = this.getById(recipientId);
-        User cashUser = (User) redisTemplate.opsForHash().get(TOKEN_KEY + uuid, userAccount);
-        try {
-            redisTemplate.opsForHash().delete(TOKEN_KEY + uuid, userAccount);
-        } catch (Exception e) {
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "删除缓存失败");
-        }
 
         // 再次校验是否已经是好友
         Boolean alreadyFriends = checkIfAlreadyFriends(sender, recipientId);
@@ -619,10 +611,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 在接收人好友列表添加上对方的id
         addFriendList(recipient, senderId);
 
-        User user = getById(cashUser.getId());
-        User safetyUser = this.getSafetyUser(user);
-        redisTemplate.opsForHash().put(TOKEN_KEY + uuid, userAccount, safetyUser);
-        redisTemplate.expire(TOKEN_KEY + uuid, 30, TimeUnit.MINUTES);
         return true;
     }
 
@@ -646,7 +634,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     @Override
     public List<User> listFriend(User loginUser) {
-        String friendId = loginUser.getFriendId();
+        // 最新数据
+        User user = this.getById(loginUser.getId());
+        String friendId = user.getFriendId();
+
         ArrayList<User> userArrayList = new ArrayList<>();
         if (StrUtil.isBlank(friendId)) {
             return userArrayList;
@@ -661,6 +652,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Boolean deleteFriend(DeleteFriendRequest deleteFriendRequest) {
         Long senderId = deleteFriendRequest.getId();
         Long recipientId = deleteFriendRequest.getDeleteId();
@@ -668,34 +660,29 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         String uuid = deleteFriendRequest.getUuid();
         User sender = this.getById(senderId);
         User recipient = this.getById(recipientId);
-        User cashUser = (User) redisTemplate.opsForHash().get(TOKEN_KEY + uuid, userAccount);
-        // 先删除缓存
-        try {
-            redisTemplate.opsForHash().delete(TOKEN_KEY + uuid, userAccount);
-        } catch (Exception e) {
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "删除缓存失败");
-        }
+
         Boolean alreadyFriends1 = checkIfAlreadyFriends(sender, recipientId);
         Boolean alreadyFriends2 = checkIfAlreadyFriends(recipient, senderId);
         if (!alreadyFriends2 && !alreadyFriends1) {
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "对方已经不是您的好友，请刷新");
+            return true;
         }
         //删除好友，修改消息通知表的好友状态为添加失败
         QueryWrapper<Notice> queryWrapper = new QueryWrapper<>();
         queryWrapper.lambda().eq(Notice::getRecipientId, senderId).eq(Notice::getSenderId, recipientId).eq(Notice::getAddFriendStatus, AddFriendStatusEnum.ADD_SUCCESS.getValue());
         Notice notice = noticeService.getOne(queryWrapper);
+
+        if (notice==null){
+            QueryWrapper<Notice> queryWrapper2 = new QueryWrapper<>();
+            queryWrapper2.lambda().eq(Notice::getSenderId, senderId).eq(Notice::getRecipientId, recipientId).eq(Notice::getAddFriendStatus, AddFriendStatusEnum.ADD_SUCCESS.getValue());
+            notice = noticeService.getOne(queryWrapper2);
+        }
+
         notice.setAddFriendStatus(AddFriendStatusEnum.ADD_ERROR.getValue());
         noticeService.updateById(notice);
 
         //双方好友列表id都删除对方
         removeFriendFromList(sender, recipientId);
         removeFriendFromList(recipient, senderId);
-
-        User user = getById(cashUser.getId());
-        User safetyUser = this.getSafetyUser(user);
-
-        redisTemplate.opsForHash().put(TOKEN_KEY + uuid, userAccount, safetyUser);
-        redisTemplate.expire(TOKEN_KEY + uuid, 30, TimeUnit.MINUTES);
 
         return true;
     }

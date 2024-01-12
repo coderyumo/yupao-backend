@@ -105,8 +105,8 @@ public class FileController {
     @GetMapping("/{fileUUID}")
     public void down(@PathVariable String fileUUID, HttpServletResponse response) throws IOException {
         //服务器写法
-//        File file = new File(filePath  + fileUUID);
-        File file = new File(filePath + "\\" + fileUUID);
+        File file = new File(filePath  + fileUUID);
+//        File file = new File(filePath + "\\" + fileUUID);
         ServletOutputStream os = response.getOutputStream();
         response.addHeader("Content-Disposition", "attachment;filename" + URLEncoder.encode(fileUUID, "UTF-8"));
         response.setContentType("application/octet-stream");
