@@ -86,8 +86,6 @@ public class InsertUsers {
 //        System.out.println("stopWatch.getTotalTimeMillis() = " + stopWatch.getTotalTimeMillis());
 //    }
 
-
-
 //    @Scheduled(initialDelay = 5000, fixedRate = Long.MAX_VALUE)
     public void doConcurrencyInsertUsers() {
         StopWatch stopWatch = new StopWatch();
@@ -95,7 +93,6 @@ public class InsertUsers {
         final int TOTAL_USERS = 1000000;
         final int BATCH_SIZE = 1000;
         final int TOTAL_BATCHES = TOTAL_USERS / BATCH_SIZE;
-
         List<CompletableFuture<Void>> futureArrayList = new ArrayList<>();
         for (int i = 0; i < TOTAL_BATCHES; i++) {
             List<User> userList = new ArrayList<>();
@@ -117,7 +114,6 @@ public class InsertUsers {
                 user.setProfile("大家好，我是渣渣辉，是兄弟就来砍我");
                 userList.add(user);
             }
-
             CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
                 try {
                     userService.saveBatch(userList, BATCH_SIZE);
@@ -126,15 +122,12 @@ public class InsertUsers {
                     e.printStackTrace();
                 }
             }, executorService);
-
             futureArrayList.add(future);
         }
-
         // 等待所有异步任务完成
         CompletableFuture[] futures = futureArrayList.toArray(new CompletableFuture[0]);
         CompletableFuture<Void> allFutures = CompletableFuture.allOf(futures);
         allFutures.join(); // 等待所有任务完成
-
         stopWatch.stop();
         System.out.println("stopWatch.getTotalTimeMillis() = " + stopWatch.getTotalTimeMillis());
     }

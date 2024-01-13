@@ -121,6 +121,8 @@ public class UserController {
         User user = (User) redisTemplate.opsForHash().get(key, userRequest.getUserAccount());
         if (user == null) {
             throw new BusinessException(ErrorCode.NOT_LOGIN);
+        }else {
+            redisTemplate.expire(TOKEN_KEY + userRequest.getUuid(), 10, TimeUnit.MINUTES);
         }
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
         queryWrapper.lambda().eq(User::getUserAccount, user.getUserAccount());

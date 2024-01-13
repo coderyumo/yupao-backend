@@ -178,7 +178,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 从Redis中查询用户是否存在
         User cashUser = (User) redisTemplate.opsForHash().get(TOKEN_KEY + uuid, userAccount);
         if (cashUser != null) {
-            redisTemplate.expire(TOKEN_KEY + uuid, 30, TimeUnit.SECONDS);
+            redisTemplate.expire(TOKEN_KEY + uuid, 10, TimeUnit.MINUTES);
             return currentToken;
         }
         // 查询用户是否存在
@@ -198,7 +198,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         String token = userAccount + "-" + newUuid; // 1. 校验
         // 4. 存储用户信息到Redis中,设置key过期时间和token过期时间
         redisTemplate.opsForHash().put(TOKEN_KEY + newUuid, safetyUser.getUserAccount(), safetyUser);
-        redisTemplate.expire(TOKEN_KEY + newUuid, 30, TimeUnit.SECONDS);
+        redisTemplate.expire(TOKEN_KEY + newUuid, 10, TimeUnit.MINUTES);
         //    request.getSession().setAttribute(USER_LOGIN_STATE, safetyUser);
         return token;
     }
@@ -593,17 +593,29 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         Boolean alreadyFriends1 = checkIfAlreadyFriends(recipient, senderId);
 
         if (alreadyFriends && alreadyFriends1) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "对方已经是您的好友，请勿重新发送");
+            return true;
         }
 
         // 修改消息通知表
         QueryWrapper<Notice> queryWrapper = new QueryWrapper<>();
         queryWrapper.lambda().eq(Notice::getSenderId, senderId).eq(Notice::getRecipientId, recipientId).eq(Notice::getAddFriendStatus, AddFriendStatusEnum.ADDING.getValue());
-        Notice notice = noticeService.getOne(queryWrapper);
-        notice.setAddFriendStatus(AddFriendStatusEnum.ADD_SUCCESS.getValue());
-        boolean updateNotice = noticeService.updateById(notice);
-        if (!updateNotice) {
+        Notice notice1 = noticeService.getOne(queryWrapper);
+        notice1.setAddFriendStatus(AddFriendStatusEnum.ADD_SUCCESS.getValue());
+        boolean updateNotice1 = noticeService.updateById(notice1);
+        if (!updateNotice1) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "修改通知表失败");
+        }
+
+
+        QueryWrapper<Notice> queryWrapper2 = new QueryWrapper<>();
+        queryWrapper2.lambda().eq(Notice::getRecipientId, senderId).eq(Notice::getSenderId, recipientId).eq(Notice::getAddFriendStatus, AddFriendStatusEnum.ADDING.getValue());
+        Notice notice2 = noticeService.getOne(queryWrapper2);
+        if (notice2 != null){
+            notice2.setAddFriendStatus(AddFriendStatusEnum.ADD_SUCCESS.getValue());
+            boolean updateNotice2 = noticeService.updateById(notice2);
+            if (!updateNotice2) {
+                throw new BusinessException(ErrorCode.SYSTEM_ERROR, "修改通知表失败");
+            }
         }
 
         // 在发送人好友列表添加上对方的id
@@ -703,7 +715,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         User safetyUser = this.getSafetyUser(user);
 
         redisTemplate.opsForHash().put(TOKEN_KEY + uuid, userAccount, safetyUser);
-        redisTemplate.expire(TOKEN_KEY + uuid, 30, TimeUnit.MINUTES);
+        redisTemplate.expire(TOKEN_KEY + uuid, 10, TimeUnit.MINUTES);
         return true;
     }
 }
