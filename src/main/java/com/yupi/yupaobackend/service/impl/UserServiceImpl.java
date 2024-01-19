@@ -1,5 +1,6 @@
 package com.yupi.yupaobackend.service.impl;
 
+import ch.qos.logback.core.encoder.EchoEncoder;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONUtil;
@@ -436,13 +437,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Boolean addFriend(AddFriendRequest addFriendRequest) {
         if (addFriendRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
         RLock lock = redissonClient.getLock(ADD_FRIEND_KEY);
         try {
-
             //只有一个线程会获取锁
             //判断发送人id和接收人id是否存在
             User sender = this.getById(addFriendRequest.getSenderId());
@@ -481,6 +482,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 if (!save) {
                     throw new BusinessException(ErrorCode.PARAMS_ERROR, "保存消息通知表失败!");
                 }
+
+                // 修改被添加人的被添加次数
+                User user = this.getById(recipientId);
+                user.setAddCount(user.getAddCount() + 1);
+                this.updateById(user);
                 return true;
             }
         } finally {
