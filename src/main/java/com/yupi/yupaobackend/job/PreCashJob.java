@@ -3,6 +3,7 @@ package com.yupi.yupaobackend.job;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.yupi.yupaobackend.mapper.UserMapper;
 import com.yupi.yupaobackend.model.domain.User;
 import com.yupi.yupaobackend.service.UserService;
 import lombok.extern.slf4j.Slf4j;
@@ -33,6 +34,9 @@ public class PreCashJob {
     private   UserService userService;
 
     @Resource
+    private UserMapper userMapper;
+
+    @Resource
     private  RedissonClient redissonClient;
 
 //    List<Long> mainUserList = Collections.singletonList(3L);
@@ -53,14 +57,12 @@ public class PreCashJob {
                 }
                 for (Long userId : mainUserList) {
                     //没有直接查询数据库
-                    QueryWrapper<User> queryWrapper = new QueryWrapper<>();
-                    Page<User> userPage = userService.page(new Page<>(1, 20), queryWrapper);
+                    List<User> userList = userMapper.searchAddCount();
                     // 执行你的任务逻辑
                     String key = USER_SEARCH_KEY + userId;
-
                     //写缓存
                     try {
-                        redisTemplate.opsForValue().set(key, userPage, 1, TimeUnit.HOURS);
+                        redisTemplate.opsForValue().set(key, userList, 24, TimeUnit.HOURS);
                     } catch (Exception e) {
                         log.error("redis set key error");
                     }

@@ -9,6 +9,7 @@ import com.yupi.yupaobackend.common.BaseResponse;
 import com.yupi.yupaobackend.common.ErrorCode;
 import com.yupi.yupaobackend.common.ResultUtils;
 import com.yupi.yupaobackend.exception.BusinessException;
+import com.yupi.yupaobackend.mapper.UserMapper;
 import com.yupi.yupaobackend.model.domain.User;
 import com.yupi.yupaobackend.model.dto.UserDTO;
 import com.yupi.yupaobackend.model.request.*;
@@ -21,7 +22,9 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -42,6 +45,9 @@ public class UserController {
 
     @Resource
     private WebSocketServer webSocketServer;
+
+    @Resource
+    private UserMapper userMapper;
 
     /**
      * 用户注册
@@ -121,7 +127,7 @@ public class UserController {
         User user = (User) redisTemplate.opsForHash().get(key, userRequest.getUserAccount());
         if (user == null) {
             throw new BusinessException(ErrorCode.NOT_LOGIN);
-        }else {
+        } else {
             redisTemplate.expire(TOKEN_KEY + userRequest.getUuid(), 10, TimeUnit.MINUTES);
         }
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
@@ -150,28 +156,47 @@ public class UserController {
 
     @GetMapping("/recommend")
     public BaseResponse<Page<User>> recommendUsers(long pageSize, long pageNum, String userAccount, String uuid) {
+        // 参数验证
+        if (pageSize <= 0 || pageNum <= 0 || StringUtils.isEmpty(userAccount) || StringUtils.isEmpty(uuid)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+
         User loginUser = userService.getLoginUser(userAccount, uuid);
         String key = USER_SEARCH_KEY + loginUser.getId();
-        //有缓存，直接读缓存
-        Page<User> userPage = (Page<User>) redisTemplate.opsForValue().get(key);
-        if (userPage != null) {
+
+        // 读取缓存
+        List<User> userList = (List<User>) redisTemplate.opsForValue().get(key);
+        Page<User> userPage = new Page<>();
+        // 如果缓存有数据，直接返回
+        if (CollectionUtils.isNotEmpty(userList)) {
+            userPage.setRecords(userList);
             return ResultUtils.success(userPage);
         }
-        //没有直接查询数据库
-        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
-        userPage = userService.page(new Page<>(pageNum, pageSize), queryWrapper);
-        List<User> userList =
-                userPage.getRecords().stream().filter(user -> user.getId() != loginUser.getId()).collect(Collectors.toList());
-        List<User> list = userList.stream().map(user -> userService.getSafetyUser(user)).collect(Collectors.toList());
-        userPage.setRecords(list);
-        //写缓存
+
+        // 查询数据库
+        List<User> searchAddCount = userMapper.searchAddCount();
+
+        // 过滤当前登录用户
+        userList = searchAddCount
+                .stream()
+                .filter(user -> user.getId() != loginUser.getId())
+                .collect(Collectors.toList());
+
+        // 对用户进行处理
+        List<User> safetyUsers = userList.stream().map(userService::getSafetyUser).collect(Collectors.toList());
+        userPage.setRecords(safetyUsers);
+
+        // 写缓存
         try {
-            redisTemplate.opsForValue().set(key, userPage, 5, TimeUnit.HOURS);
+            redisTemplate.opsForValue().set(key, userList, 24, TimeUnit.HOURS);
         } catch (Exception e) {
-            log.error("redis set key error");
+            log.error("Error setting Redis key", e);
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR);
         }
+
         return ResultUtils.success(userPage);
     }
+
 
     @GetMapping("/search/tags")
     public BaseResponse<Page<User>> searchByTags(SearchUserByTagsRequest byTagsRequest) {

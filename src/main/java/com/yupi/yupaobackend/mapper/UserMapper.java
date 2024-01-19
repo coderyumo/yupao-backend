@@ -14,6 +14,7 @@ import java.util.List;
 */
 public interface UserMapper extends BaseMapper<User> {
 
+    List<User> searchAddCount();
 }
 
 

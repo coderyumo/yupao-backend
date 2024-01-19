@@ -1,6 +1,6 @@
 spring:
   application:
-    name: user-center
+    name: yupao-backend
   datasource:
     driver-class-name: com.mysql.jdbc.Driver
     username: root
@@ -11,12 +11,12 @@ spring:
     timeout: 86400
     store-type: redis
   redis:
-    host: 192.168.52.128
+    host: 192.168.52.130
     port: 6379
     password: 123
     database: 0
   rabbitmq:
-    host: 192.168.52.128
+    host: 192.168.52.130
     port: 5672
     username: guest
     password: guest

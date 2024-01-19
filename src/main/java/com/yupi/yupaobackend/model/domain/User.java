@@ -29,6 +29,12 @@ public class User implements Serializable {
 
 
     /**
+     * 被添加好友的次数
+     */
+    private Integer addCount;
+
+
+    /**
      * 用户昵称
      */
     private String username;

@@ -673,11 +673,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         User sender = this.getById(senderId);
         User recipient = this.getById(recipientId);
 
-        Boolean alreadyFriends1 = checkIfAlreadyFriends(sender, recipientId);
-        Boolean alreadyFriends2 = checkIfAlreadyFriends(recipient, senderId);
-        if (!alreadyFriends2 && !alreadyFriends1) {
-            return true;
-        }
+
         //删除好友，修改消息通知表的好友状态为添加失败
         QueryWrapper<Notice> queryWrapper = new QueryWrapper<>();
         queryWrapper.lambda().eq(Notice::getRecipientId, senderId).eq(Notice::getSenderId, recipientId).eq(Notice::getAddFriendStatus, AddFriendStatusEnum.ADD_SUCCESS.getValue());

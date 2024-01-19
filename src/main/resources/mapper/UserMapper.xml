@@ -10,6 +10,7 @@
             <result property="userAccount" column="userAccount" jdbcType="VARCHAR"/>
             <result property="avatarUrl" column="avatarUrl" jdbcType="VARCHAR"/>
             <result property="gender" column="gender" jdbcType="TINYINT"/>
+            <result property="addCount" column="addCount" jdbcType="INTEGER"/>
             <result property="userPassword" column="userPassword" jdbcType="VARCHAR"/>
             <result property="phone" column="phone" jdbcType="VARCHAR"/>
             <result property="email" column="email" jdbcType="VARCHAR"/>
@@ -26,11 +27,19 @@
 
 
     <sql id="Base_Column_List">
-        id,username,userAccount,
+        id,username,userAccount,addCount,
         avatarUrl,gender,userPassword,
         phone,email,userStatus,
         createTime,updateTime,isDelete,profile,
         userRole,planetCode,tags
     </sql>
+
+
+    <select id="searchAddCount" resultType="com.yupi.yupaobackend.model.domain.User">
+        SELECT *
+        FROM user
+        ORDER BY addCount DESC
+            LIMIT 20;
+    </select>
 
 </mapper>
