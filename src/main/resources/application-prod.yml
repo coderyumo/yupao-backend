@@ -2,7 +2,7 @@
 # 线上配置文件
 spring:
   application:
-    name: user-center
+    name: yupao-backend
   # DataSource Config
   datasource:
     driver-class-name: com.mysql.jdbc.Driver

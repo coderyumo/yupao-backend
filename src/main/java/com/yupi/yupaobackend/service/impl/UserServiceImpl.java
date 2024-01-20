@@ -485,7 +485,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
                 // 修改被添加人的被添加次数
                 User user = this.getById(recipientId);
-                user.setAddCount(user.getAddCount() + 1);
+                if (user.getAddCount() != null){
+                    user.setAddCount(user.getAddCount() + 1);
+                }else {
+                    user.setAddCount(1);
+                }
                 this.updateById(user);
                 return true;
             }
