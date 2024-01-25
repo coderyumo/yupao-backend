@@ -97,6 +97,7 @@ create table user
     id           bigint auto_increment comment '主键'
         primary key,
     friendId     varchar(1024)                      null comment '好友id',
+    addCount     int(10)                            null comment '被添加好友的次数',
     username     varchar(256)                       null comment '昵称',
     userAccount  varchar(256)                       null comment '登录账号',
     avatarUrl    varchar(1024)                      null comment '头像',
