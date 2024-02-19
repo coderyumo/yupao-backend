@@ -169,15 +169,18 @@ public class UserController {
         Page<User> userPage = new Page<>();
         // 如果缓存有数据，直接返回
         if (CollectionUtils.isNotEmpty(userList)) {
+            userList = userList.stream()
+                    .filter(user -> user.getId() != loginUser.getId())
+                    .collect(Collectors.toList());
             userPage.setRecords(userList);
             return ResultUtils.success(userPage);
         }
 
         // 查询数据库
-        List<User> searchAddCount = userMapper.searchAddCount();
+        userList = userMapper.searchAddCount();
 
         // 过滤当前登录用户
-        userList = searchAddCount
+        userList = userList
                 .stream()
                 .filter(user -> user.getId() != loginUser.getId())
                 .collect(Collectors.toList());
